@@ -10,7 +10,7 @@ import json
 from libcst.metadata import CodeRange, MetadataWrapper, ParentNodeProvider, PositionProvider
 import libcst as cst
 
-from yngfmt.structural_layout import collapse_redundant_outer_expansions, compact_thin_function_spacing
+from yngfmt.structural_layout import collapse_redundant_outer_expansions, compact_simple_calls, compact_thin_function_spacing
 
 
 _CONTROL_CHARACTERS: Final[dict[str, str]] = {
@@ -217,5 +217,6 @@ def apply_custom_transforms(source: str) -> str:
     module: cst.Module = cst.parse_module(source)
     wrapper: MetadataWrapper = MetadataWrapper(module)
     transformed_module: cst.Module = wrapper.visit(YngminStyleTransformer())
-    structurally_compact: str = collapse_redundant_outer_expansions(source=transformed_module.code)
+    simple_calls_compact: str = compact_simple_calls(source=transformed_module.code)
+    structurally_compact: str = collapse_redundant_outer_expansions(source=simple_calls_compact)
     return compact_thin_function_spacing(source=structurally_compact)
