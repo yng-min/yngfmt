@@ -8,7 +8,7 @@ from typing import Final, cast
 import json
 
 import libcst as cst
-from libcst.metadata import CodeRange, MetadataWrapper, PositionProvider
+from libcst.metadata import CodeRange, MetadataWrapper, ParentNodeProvider, PositionProvider
 
 from yngfmt.structural_layout import collapse_redundant_outer_expansions
 
@@ -122,17 +122,36 @@ class YngminStyleTransformer(cst.CSTTransformer):
     Apply rules that mechanical whitespace normalization cannot represent safely.
     """
 
-    METADATA_DEPENDENCIES = (PositionProvider,)
+    METADATA_DEPENDENCIES = (ParentNodeProvider, PositionProvider)
+
+    def _inside_formatted_string(self, node: cst.CSTNode) -> bool:
+        """
+        Return whether a node belongs to an f-string expression.
+        """
+        current: cst.CSTNode = node
+        while True:
+            parent: cst.CSTNode | None = self.get_metadata(
+                ParentNodeProvider,
+                current,
+                default=None,
+            )
+            if parent is None:
+                return False
+            if isinstance(parent, cst.FormattedString):
+                return True
+            current = parent
 
     def leave_SimpleString(
         self,
         original_node: cst.SimpleString,
         updated_node: cst.SimpleString,
     ) -> cst.SimpleString:
+        if self._inside_formatted_string(node=original_node):
+            return updated_node
+
         value: str | None = _double_quoted_literal(node=original_node)
         if value is None:
             return updated_node
-
         return updated_node.with_changes(value=value)
 
     def leave_Subscript(
@@ -202,7 +221,6 @@ class YngminStyleTransformer(cst.CSTTransformer):
     ) -> cst.TrailingWhitespace:
         if updated_node.comment is None:
             return updated_node
-
         return updated_node.with_changes(whitespace=cst.SimpleWhitespace(" "))
 
 
