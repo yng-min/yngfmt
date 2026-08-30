@@ -48,6 +48,7 @@ value = data["name"]
 '''
     assert format_code(source) == '''from typing import Literal
 
+
 Format = Literal["native", "vst3"]
 value = data['name']
 '''
