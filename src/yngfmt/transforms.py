@@ -4,7 +4,7 @@ Custom syntax-preserving style transforms.
 
 from __future__ import annotations
 
-from typing import Final
+from typing import Final, cast
 import json
 
 import libcst as cst
@@ -177,7 +177,10 @@ class YngminStyleTransformer(cst.CSTTransformer):
                 ),
             )
 
-        position: CodeRange = self.get_metadata(PositionProvider, original_node)
+        position: CodeRange = cast(
+            CodeRange,
+            self.get_metadata(PositionProvider, original_node),
+        )
         if position.start.line != position.end.line:
             return updated_node
 
