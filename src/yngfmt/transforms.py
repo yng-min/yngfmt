@@ -10,6 +10,8 @@ import json
 import libcst as cst
 from libcst.metadata import CodeRange, MetadataWrapper, PositionProvider
 
+from yngfmt.structural_layout import collapse_redundant_outer_expansions
+
 
 _CONTROL_CHARACTERS: Final[dict[str, str]] = {
     "\a": "\\a",
@@ -211,4 +213,4 @@ def apply_custom_transforms(source: str) -> str:
     module: cst.Module = cst.parse_module(source)
     wrapper: MetadataWrapper = MetadataWrapper(module)
     transformed_module: cst.Module = wrapper.visit(YngminStyleTransformer())
-    return transformed_module.code
+    return collapse_redundant_outer_expansions(source=transformed_module.code)
