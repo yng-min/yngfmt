@@ -21,6 +21,24 @@ from yngfmt.mechanical_rules import check_mechanical_rules
 _SNAKE_CASE_PATTERN = re.compile(r"^[a-z_][a-z0-9_]*$")
 _PASCAL_CASE_PATTERN = re.compile(r"^[A-Z][A-Za-z0-9]*$")
 _FRAMEWORK_CALLBACK_SUFFIX_PATTERN = re.compile(r"^[A-Z][A-Za-z0-9]*$")
+_TYPE_SUBSCRIPT_NAMES = frozenset({
+    "Annotated",
+    "ClassVar",
+    "Final",
+    "Literal",
+    "NotRequired",
+    "Optional",
+    "Required",
+    "TypeGuard",
+    "TypeIs",
+    "Union",
+    "dict",
+    "frozenset",
+    "list",
+    "set",
+    "tuple",
+    "type",
+})
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,6 +46,7 @@ class ResultConfig:
     """
     Configure result object detection and field validation.
     """
+    enabled: bool = True
     class_names: tuple[str, ...] = ("Result",)
     typed_dict_names: tuple[str, ...] = ("ResultDict",)
     required_fields: tuple[str, ...] = ("error", "code", "message", "data")
@@ -37,13 +56,17 @@ class ResultConfig:
 
 def load_result_config(pyproject_path: Path | None) -> ResultConfig:
     """
-    Load result object settings from pyproject.toml.
+    Load opt-in result object settings from pyproject.toml.
     """
     if pyproject_path is None or not pyproject_path.is_file():
-        return ResultConfig()
+        return ResultConfig(enabled=False)
 
     data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
     settings = data.get("tool", {}).get("yngfmt", {}).get("result-object", {})
+    if not settings:
+        return ResultConfig(enabled=False)
+
+    defaults = ResultConfig()
 
     def strings(key: str, default: tuple[str, ...]) -> tuple[str, ...]:
         value = settings.get(key, default)
@@ -52,11 +75,12 @@ def load_result_config(pyproject_path: Path | None) -> ResultConfig:
         return tuple(item for item in value if isinstance(item, str))
 
     return ResultConfig(
-        class_names=strings("class-names", ResultConfig.class_names),
-        typed_dict_names=strings("typed-dict-names", ResultConfig.typed_dict_names),
-        required_fields=strings("required-fields", ResultConfig.required_fields),
-        marker_fields=strings("marker-fields", ResultConfig.marker_fields),
-        aliases=strings("aliases", ResultConfig.aliases),
+        enabled=True,
+        class_names=strings("class-names", defaults.class_names),
+        typed_dict_names=strings("typed-dict-names", defaults.typed_dict_names),
+        required_fields=strings("required-fields", defaults.required_fields),
+        marker_fields=strings("marker-fields", defaults.marker_fields),
+        aliases=strings("aliases", defaults.aliases),
     )
 
 
@@ -124,7 +148,8 @@ class StyleGuideVisitor(ast.NodeVisitor):
         ))
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
-        if not _PASCAL_CASE_PATTERN.fullmatch(node.name):
+        class_name: str = node.name.lstrip("_")
+        if not class_name or not _PASCAL_CASE_PATTERN.fullmatch(class_name):
             self.add(node=node, code="YNG201", message="class name must use PascalCase")
 
         self._callback_prefix_stack.append(_framework_callback_prefixes(node=node))
@@ -225,11 +250,25 @@ def _docstring_positions(tree: ast.AST) -> set[tuple[int, int]]:
     return positions
 
 
+def _subscript_base_name(node: ast.Subscript) -> str | None:
+    return _base_name(node.value)
+
+
+def _subscript_uses_dictionary_key_quote(node: ast.Subscript) -> bool:
+    name: str | None = _subscript_base_name(node=node)
+    if name is None:
+        return True
+    if name in _TYPE_SUBSCRIPT_NAMES:
+        return False
+    return not name[:1].isupper()
+
+
 def _subscript_string_positions(tree: ast.AST) -> set[tuple[int, int]]:
     return {
         (node.slice.lineno, node.slice.col_offset)
         for node in ast.walk(tree)
         if isinstance(node, ast.Subscript)
+        and _subscript_uses_dictionary_key_quote(node=node)
         and isinstance(node.slice, ast.Constant)
         and isinstance(node.slice.value, str)
     }
@@ -282,7 +321,7 @@ def _check_subscript_quotes(source: str, path: Path, tree: ast.AST) -> list[Diag
     diagnostics: list[Diagnostic] = []
     lines: list[str] = source.splitlines()
     for node in ast.walk(tree):
-        if not isinstance(node, ast.Subscript):
+        if not isinstance(node, ast.Subscript) or not _subscript_uses_dictionary_key_quote(node=node):
             continue
         slice_node: ast.expr = node.slice
         if not (
@@ -580,6 +619,9 @@ def _check_result_objects(
     path: Path,
     config: ResultConfig,
 ) -> list[Diagnostic]:
+    if not config.enabled:
+        return []
+
     diagnostics: list[Diagnostic] = []
     result_type_names: set[str] = set(config.class_names) | set(config.typed_dict_names)
 
