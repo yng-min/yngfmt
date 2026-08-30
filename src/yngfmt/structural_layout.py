@@ -9,14 +9,15 @@ import tokenize
 
 
 _INDENT: Final[str] = "    "
-_IGNORED_TOKEN_TYPES: Final[frozenset[int]] = frozenset(
-    {
-        tokenize.DEDENT,
-        tokenize.ENDMARKER,
-        tokenize.INDENT,
-        tokenize.NEWLINE,
-        tokenize.NL,
-    }
+_SAFE_LOCAL_CHILD_TYPES: Final[tuple[type[ast.expr], ...]] = (
+    ast.Call,
+    ast.Dict,
+    ast.DictComp,
+    ast.List,
+    ast.ListComp,
+    ast.Set,
+    ast.SetComp,
+    ast.Tuple,
 )
 
 
@@ -28,6 +29,17 @@ def _character_column(line: str, byte_column: int) -> int:
     return len(prefix.decode("utf-8"))
 
 
+def _line_offsets(source: str) -> tuple[list[str], list[int]]:
+    """
+    Return source lines and their cumulative character offsets.
+    """
+    lines: list[str] = source.splitlines(keepends=True)
+    offsets: list[int] = [0]
+    for line in lines:
+        offsets.append(offsets[-1] + len(line))
+    return lines, offsets
+
+
 def _node_bounds(source: str, node: ast.expr) -> tuple[int, int] | None:
     """
     Return exact character offsets for one expression node.
@@ -35,7 +47,7 @@ def _node_bounds(source: str, node: ast.expr) -> tuple[int, int] | None:
     if node.end_lineno is None or node.end_col_offset is None:
         return None
 
-    lines: list[str] = source.splitlines(keepends=True)
+    lines, offsets = _line_offsets(source=source)
     start_line_index: int = node.lineno - 1
     end_line_index: int = node.end_lineno - 1
     if start_line_index >= len(lines) or end_line_index >= len(lines):
@@ -49,9 +61,7 @@ def _node_bounds(source: str, node: ast.expr) -> tuple[int, int] | None:
         line=lines[end_line_index],
         byte_column=node.end_col_offset,
     )
-    start_offset: int = sum(len(line) for line in lines[:start_line_index]) + start_column
-    end_offset: int = sum(len(line) for line in lines[:end_line_index]) + end_column
-    return start_offset, end_offset
+    return offsets[start_line_index] + start_column, offsets[end_line_index] + end_column
 
 
 def _leading_whitespace(line: str) -> str:
@@ -83,11 +93,7 @@ def _strip_outer_trailing_comma(line: str) -> str:
     return f"{stripped[:-1]}{trailing_whitespace}"
 
 
-def _collapse_segment(
-    segment: str,
-    opener: str,
-    closer: str,
-) -> str | None:
+def _collapse_segment(segment: str, opener: str, closer: str) -> str | None:
     """
     Collapse one redundant parent wrapper while leaving its child multi-line.
     """
@@ -109,13 +115,11 @@ def _collapse_segment(
         return None
 
     outer_indent: str = _leading_whitespace(line=last_line)
-    body_indent: str = _leading_whitespace(line=middle_lines[0])
-    if body_indent != f"{outer_indent}{_INDENT}":
+    child_indent: str = _leading_whitespace(line=middle_lines[0])
+    expected_child_indent: str = f"{outer_indent}{_INDENT}"
+    if child_indent != expected_child_indent:
         return None
-    if any(
-        line.strip() and not line.startswith(body_indent)
-        for line in middle_lines
-    ):
+    if any(line.strip() and not line.startswith(child_indent) for line in middle_lines):
         return None
 
     dedented_lines: list[str] = [
@@ -136,30 +140,26 @@ def _collapse_segment(
 
 def _single_multiline_child(node: ast.expr) -> tuple[ast.expr, str, str] | None:
     """
-    Return a single multi-line child and its parent delimiters when collapsible.
+    Return one locally expandable child and the redundant parent delimiters.
     """
-    child: ast.expr
-    opener: str
-    closer: str
-
     if isinstance(node, ast.Call):
         if len(node.args) + len(node.keywords) != 1:
             return None
-        child = node.args[0] if node.args else node.keywords[0].value
-        opener = "("
-        closer = ")"
+        child: ast.expr = node.args[0] if node.args else node.keywords[0].value
+        delimiters: tuple[str, str] = ("(", ")")
     elif isinstance(node, ast.List):
         if len(node.elts) != 1:
             return None
         child = node.elts[0]
-        opener = "["
-        closer = "]"
+        delimiters = ("[", "]")
     else:
         return None
 
+    if not isinstance(child, _SAFE_LOCAL_CHILD_TYPES):
+        return None
     if child.end_lineno is None or child.lineno == child.end_lineno:
         return None
-    return child, opener, closer
+    return child, *delimiters
 
 
 def _collapse_once(source: str) -> str | None:
