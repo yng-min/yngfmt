@@ -236,7 +236,7 @@ def _body_without_docstring(node: ast.FunctionDef | ast.AsyncFunctionDef) -> lis
 
 def compact_thin_function_spacing(source: str) -> str:
     """
-    Remove decorative blank lines from deterministic two-step straight-line bodies.
+    Remove decorative blank lines from short straight-line function bodies.
     """
     tree: ast.Module = ast.parse(source, type_comments=True)
     lines: list[str] = source.splitlines(keepends=True)
@@ -247,18 +247,21 @@ def compact_thin_function_spacing(source: str) -> str:
             continue
 
         body: list[ast.stmt] = _body_without_docstring(node=node)
-        if len(body) != 2 or any(isinstance(statement, _COMPLEX_STATEMENT_TYPES) for statement in body):
+        if not 2 <= len(body) <= 3:
+            continue
+        if any(isinstance(statement, _COMPLEX_STATEMENT_TYPES) for statement in body):
             continue
 
-        previous_end: int = body[0].end_lineno or body[0].lineno
-        current_start: int = body[1].lineno
-        if current_start - previous_end <= 1:
-            continue
+        for previous, current in zip(body, body[1:]):
+            previous_end: int = previous.end_lineno or previous.lineno
+            current_start: int = current.lineno
+            if current_start - previous_end <= 1:
+                continue
 
-        gap: list[str] = lines[previous_end : current_start - 1]
-        if not gap or any(line.strip() for line in gap):
-            continue
-        removals.append((previous_end, current_start - 1))
+            gap: list[str] = lines[previous_end : current_start - 1]
+            if not gap or any(line.strip() for line in gap):
+                continue
+            removals.append((previous_end, current_start - 1))
 
     for start, end in reversed(removals):
         del lines[start:end]
