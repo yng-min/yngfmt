@@ -10,6 +10,8 @@ import json
 from libcst.metadata import CodeRange, MetadataWrapper, ParentNodeProvider, PositionProvider
 import libcst as cst
 
+from yngfmt.docstrings import compact_definition_docstring_spacing, normalize_docstring_delimiters
+
 from yngfmt.structural_layout import collapse_redundant_outer_expansions, compact_simple_calls, compact_thin_function_spacing
 
 
@@ -31,6 +33,24 @@ _BYTE_CONTROL_CHARACTERS: Final[dict[int, str]] = {
     12: "\\f",
     13: "\\r",
 }
+_TYPE_SUBSCRIPT_NAMES: Final[frozenset[str]] = frozenset({
+    "Annotated",
+    "ClassVar",
+    "Final",
+    "Literal",
+    "NotRequired",
+    "Optional",
+    "Required",
+    "TypeGuard",
+    "TypeIs",
+    "Union",
+    "dict",
+    "frozenset",
+    "list",
+    "set",
+    "tuple",
+    "type",
+})
 
 
 def _single_quoted_string(value: str) -> str:
@@ -117,6 +137,23 @@ def _plain_string_value(node: cst.SimpleString) -> str | None:
     return evaluated_value
 
 
+def _subscript_name(value: cst.BaseExpression) -> str | None:
+    if isinstance(value, cst.Name):
+        return value.value
+    if isinstance(value, cst.Attribute):
+        return value.attr.value
+    return None
+
+
+def _uses_dictionary_key_quote(node: cst.Subscript) -> bool:
+    name: str | None = _subscript_name(value=node.value)
+    if name is None:
+        return True
+    if name in _TYPE_SUBSCRIPT_NAMES:
+        return False
+    return not name[:1].isupper()
+
+
 class YngminStyleTransformer(cst.CSTTransformer):
     """
     Apply rules that mechanical whitespace normalization cannot represent safely.
@@ -158,6 +195,9 @@ class YngminStyleTransformer(cst.CSTTransformer):
         original_node: cst.Subscript,
         updated_node: cst.Subscript,
     ) -> cst.Subscript:
+        if not _uses_dictionary_key_quote(node=original_node):
+            return updated_node
+
         updated_slices: list[cst.SubscriptElement] = []
         for slice_element in updated_node.slice:
             slice_value = slice_element.slice
@@ -217,6 +257,8 @@ def apply_custom_transforms(source: str) -> str:
     module: cst.Module = cst.parse_module(source)
     wrapper: MetadataWrapper = MetadataWrapper(module)
     transformed_module: cst.Module = wrapper.visit(YngminStyleTransformer())
-    simple_calls_compact: str = compact_simple_calls(source=transformed_module.code)
+    docstrings_normalized: str = normalize_docstring_delimiters(source=transformed_module.code)
+    docstring_spacing_compact: str = compact_definition_docstring_spacing(source=docstrings_normalized)
+    simple_calls_compact: str = compact_simple_calls(source=docstring_spacing_compact)
     structurally_compact: str = collapse_redundant_outer_expansions(source=simple_calls_compact)
     return compact_thin_function_spacing(source=structurally_compact)
