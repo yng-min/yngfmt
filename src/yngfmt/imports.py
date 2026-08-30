@@ -239,10 +239,7 @@ def _standalone_directive(line: str, directive: str) -> bool:
 
 def _attached_end(lines: Sequence[str], end_line: int) -> int:
     next_line: int = end_line + 1
-    if next_line <= len(lines) and _standalone_directive(
-        line=lines[next_line - 1],
-        directive=_ON,
-    ):
+    if next_line <= len(lines) and _standalone_directive(line=lines[next_line - 1], directive=_ON):
         return next_line
     return end_line
 

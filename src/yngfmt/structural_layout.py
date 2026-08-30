@@ -72,14 +72,8 @@ def _node_bounds(source: str, node: ast.expr) -> tuple[int, int] | None:
     if start_line_index >= len(lines) or end_line_index >= len(lines):
         return None
 
-    start_column: int = _character_column(
-        line=lines[start_line_index],
-        byte_column=node.col_offset,
-    )
-    end_column: int = _character_column(
-        line=lines[end_line_index],
-        byte_column=node.end_col_offset,
-    )
+    start_column: int = _character_column(line=lines[start_line_index], byte_column=node.col_offset)
+    end_column: int = _character_column(line=lines[end_line_index], byte_column=node.end_col_offset)
     return offsets[start_line_index] + start_column, offsets[end_line_index] + end_column
 
 

@@ -1,4 +1,4 @@
-# yngmin’s Python Style Guide (Korean) - v4 (260726)
+# yngmin’s Python Style Guide (Korean) - v5 (260830)
 
 > 코드 스타일, 설계 원칙 및 코딩 컨벤션
 > 
@@ -27,6 +27,8 @@
 | Dictionary literal spacing | 비어 있지 않은 single-line dictionary literal은 여는 중괄호 뒤와 닫는 중괄호 앞에 각각 **1 space**를 두며, 빈 dictionary literal은 `{}`로 작성 |
 | Indentation | 4 spaces 사용 |
 | Tabs | 사용하지 않음 |
+
+일반 문자열과 `Literal["value"]` 같은 type subscript의 문자열은 큰따옴표를 사용한다. 작은따옴표는 `data['key']`처럼 실제 dictionary key access에만 사용한다.
 
 ---
 
@@ -396,6 +398,8 @@ for field in fields:
 
 Class는 **PascalCase 명사**로 작성한다.
 
+Private class의 선행 underscore(`_`)는 visibility marker로 취급하며 이름 형식 검사에서는 제외한다. 따라서 `_InternalCache`는 `InternalCache`에 기존 PascalCase 규칙을 그대로 적용한다. 별도의 private-class naming convention을 만들지 않는다.
+
 Class 이름은 해당 class가 나타내는 객체, 서비스, builder, manager, domain concept를 설명해야 한다.
 
 예시:
@@ -539,82 +543,64 @@ user = service.create_user(
 
 ### 4.8.1 Function Call Formatting
 
-Function call의 single-line 또는 multi-line 형태는 line length가 아니라 인자의 개수와 expression의 구조를 기준으로 결정한다.
+Function call의 single-line 또는 multi-line 형태는 전역 line length가 아니라 expression 구조와 인접한 호출의 일관성을 기준으로 결정한다.
 
-인자가 하나이고 해당 인자가 단순한 값 또는 참조인 경우에는 single-line call을 유지한다.
+인자 수 자체는 multi-line의 이유가 아니다. 인자가 여러 개여도 모든 argument가 flat simple expression이면 single-line을 기본으로 한다.
+
+Flat simple expression에는 단순 값/참조뿐 아니라 내부에 nested call, collection, conditional 등 별도 구조가 없는 평평한 arithmetic, comparison, boolean expression을 포함한다.
 
 ```python
-result: Result[Article] = service.process(article=article)
-repository.save(data)
-set_enabled(value=True)
+self.assertEqual(comparison_process.returncode, 0, comparison_process.stdout + comparison_process.stderr)
+process(first + second + third, lower <= value < upper)
 ```
 
-단순한 인자 하나만을 별도의 줄로 분리하는 것은 권장하지 않는다.
+반대로 nested call, collection/comprehension, conditional, lambda, multi-line string, 설명 주석, `*args`/`**kwargs`처럼 실제 내부 구조가 있으면 multi-line을 유지할 수 있다.
 
 ```python
-result: Result[Article] = service.process(
-    article=article,
-)
-```
-
-유일한 인자가 자체적인 expression 구조를 가지거나, 호출과 인자 내부의 처리 단계를 구분할 필요가 있는 경우에는 multi-line call을 사용할 수 있다.
-
-```python
-result: Result[Article] = service.process(
-    article=create_article(
-        metadata=metadata,
-        content=content,
+process(
+    first,
+    build_value(
+        enabled=True,
+        timeout=10,
     ),
 )
 ```
 
-```python
-service.process(
-    options={
-        "enabled": True,
-        "timeout": 10,
-    },
-)
-```
+이미 nested expression 안에서 여러 인자로 펼쳐진 call은 일반적인 formatter pass에서 억지로 접지 않는다. 구조가 드러나는 현재 표현을 유지한다.
+
+Zero-argument call은 call 자체를 `method()` 형태로 유지한다. Receiver expression이 여러 줄이라는 이유만으로 zero-argument call 자체가 multi-line call이 되는 것은 아니다.
 
 ```python
-service.process(
-    value=primary_value if condition else fallback_value,
-)
+return (
+    project_directory
+    / "Assets"
+    / "Audio"
+).as_posix()
 ```
 
-인자가 여러 개인 경우에도 각 인자의 역할과 호출 구조를 명확하게 드러내는 형태를 선택한다.
+### 4.8.2 Homogeneous Call Run
+
+같은 receiver에서 같은 method family가 다른 statement 없이 연속되면 하나의 homogeneous call run으로 취급한다.
+
+CamelCase method는 첫 대문자 전 prefix, snake_case method는 첫 underscore 전 prefix를 method family로 본다. 예를 들어 `self.assertEqual`, `self.assertIn`은 같은 `self.assert*` family이며 `client.get_value`, `client.get_other`는 같은 `client.get_*` family다.
+
+동일 run에서는 가능한 호출의 shape을 일관되게 맞춘다. 일반 규칙상 nested structure 때문에 multi-line인 call도, 주석과 multi-line string을 훼손하지 않고 한 줄로 안전하게 표현할 수 있으며 결과가 지나치게 길지 않다면 compact할 수 있다.
 
 ```python
-user = service.create_user(
-    user_id=user_id,
-    nickname=nickname,
-    is_admin=is_admin,
-)
+self.assertIn("first", output)
+self.assertEqual(actual, build_expected(enabled=True, timeout=10))
+self.assertIn("second", output)
 ```
 
-다음과 같은 경우에는 인자가 하나뿐이더라도 multi-line call을 허용한다.
+이 일관성 보정에서만 compact 결과가 **200자 이하인지** 확인하는 제한적인 guard를 사용한다. 이는 전역 maximum line length가 아니며 일반 코드의 줄바꿈 기준으로 사용하지 않는다.
 
-- nested call
-- dictionary, list, set, tuple literal
-- comprehension 또는 generator expression
-- conditional expression
-- binary 또는 boolean expression
-- lambda expression
-- multi-line string
-- argument에 설명 주석이 존재하는 경우
-- `*args` 또는 `**kwargs`를 사용하는 경우
-
-이 규칙은 line length를 기준으로 판단하지 않는다.
+200자를 넘거나 comment/multi-line string 보존이 필요한 경우에는 해당 call의 multi-line 구조를 유지한다. 일관성을 이유로 의미 구조를 손상시키거나 비정상적으로 긴 한 줄을 만들지 않는다.
 
 > **운영 기준**
-> 
-
+>
 > Single-line call에는 trailing comma를 사용하지 않는다.
-> 
-
+>
 > Multi-line call에는 마지막 argument 뒤에도 trailing comma를 사용한다.
-> 
 
 ---
 
@@ -666,6 +652,8 @@ Alias 이름은 번호보다 용도 중심으로 작성한다.
 ---
 
 ## 6. Result Object Convention
+
+Result object field consistency의 자동 검사(`YNG601`~`YNG603`)는 전역 Python 규칙이 아니다. 프로젝트가 `[tool.yngfmt.result-object]`를 명시적으로 설정한 경우에만 해당 프로젝트 convention으로 활성화한다.
 
 Result object는 dictionary 기반으로도 사용할 수 있지만, `dataclass`, `TypedDict`, `StrEnum` 등을 사용한 구조화된 result object를 우선 고려한다.
 
@@ -1065,7 +1053,7 @@ class ArticleService:
 
 다만 본 문서에서 정의하는 logical block spacing, import segment grouping, Result Object convention처럼 프로젝트 맥락을 보존하기 위한 규칙은 별도 검사기 또는 code review 기준으로 관리한다.
 
-기존 formatter나 linter로 안정적으로 검사하기 어려운 프로젝트 고유 규칙은 의도적으로 자동 포맷팅 대상에서 제외하며, 기계적으로 판정 가능한 부분은 `tests/test_python_style.py`에서 검증한다.
+프로젝트 고유 규칙 중 기계적으로 판정 가능한 부분은 `yngfmt` formatter/linter와 CI에서 검증하고, 의미 판단이 필요한 부분만 code review 기준으로 남긴다.
 
 자동 검증 가능한 규칙은 formatter, linter, import sorter, pre-commit hook, CI 단계에서 점진적으로 적용한다.
 
@@ -1079,30 +1067,19 @@ logical stage 구분, naming intent, 책임 분리처럼 사람의 설계 판단
 
 ## 12. Automation Mapping
 
-| Category | Rule | Current Enforcement | CI Level | Future Custom Tool | Review Required |
-| --- | --- | --- | --- | --- | --- |
-| Basic Style | indentation / tabs | custom Pytest checker | Error | implemented | Low |
-| Basic Style | string quote style | custom Pytest checker | Error | implemented | Low |
-| Basic Style | single-line dictionary inner spacing | custom Pytest checker | Error | implemented | Low |
-| Docstring | module / class / function docstring layout | formatter / linter | Error | possible | Low |
-| Blank Line | function body spacing | formatter | Error | possible | Low |
-| Blank Line | logical block spacing | code review | Review | partially possible | High |
-| Blank Line | return spacing | custom checker | Review | partially possible | Medium |
-| Blank Line | short wrapper method spacing | custom checker | Review | partially possible | Medium |
-| Line Breaking | semantic line breaking | code review | Review | difficult | High |
-| Line Breaking | simple single-argument call formatting | custom Pytest checker | Error | implemented | Medium |
-| Line Breaking | multi-line call trailing comma | custom Pytest checker | Error | implemented | Low |
-| Import | standard / third-party / first-party / group order | custom Pytest checker | Error | implemented | Low |
-| Import | reserved segment order | custom checker | Error | possible | Low |
-| Import | dynamic project layer segment grouping | custom checker | Error | possible | Medium |
-| Naming | class / function / method naming format | linter | Error | possible | Low |
-| Naming | configuration object `_config` suffix | code review | Review | possible | Medium |
-| Naming | named argument for boolean literals | code review | Review | possible | Low |
-| Naming | boolean naming recommendation | code review | Review | difficult | High |
-| Naming | semantic variable name | code review | Review | difficult | High |
-| Result Object | result object field consistency | type checker / custom checker | Error | implemented | Medium |
-| Exception | result vs exception boundary | code review | Review | partially possible | High |
-| Architecture | responsibility and layer boundary | architecture review | Review | difficult | High |
+| Category | Rule | Current Enforcement | CI Level | Review Required |
+| --- | --- | --- | --- | --- |
+| Basic Style | indentation / tabs / string quotes / dictionary spacing | `yngfmt` / `ynglint` | Error | Low |
+| Docstring | quote / delimiter / spacing layout | `yngfmt` / `ynglint` | Error | Low |
+| Blank Line | mechanical definition/body spacing | `yngfmt` / `ynglint` | Error | Low |
+| Blank Line | logical stage spacing | code review | Review | High |
+| Line Breaking | simple and homogeneous call formatting | `yngfmt` / `ynglint` | Error | Low |
+| Import | origin / segment grouping / ordering | `yngfmt` / `ynglint` | Error | Low |
+| Naming | class / function / method naming format | `ynglint` | Error | Low |
+| Naming | semantic naming intent | code review | Review | High |
+| Result Object | configured result field consistency | opt-in `ynglint` | Error | Medium |
+| Exception | result vs exception boundary | code review | Review | High |
+| Architecture | responsibility and layer boundary | architecture review | Review | High |
 
 CI Level은 해당 규칙을 자동으로 차단할지, 코드 리뷰 기준으로 유지할지를 나타낸다.
 
@@ -1110,13 +1087,10 @@ CI Level은 해당 규칙을 자동으로 차단할지, 코드 리뷰 기준으�
 - **Review**: 문맥이나 설계 의도에 따라 판단해야 하는 규칙으로, 코드 리뷰를 통해 검토한다.
 
 > **운영 기준**
-> 
-
-> 자동화 가능한 규칙은 도구로 처리하고, 의미 판단이 필요한 규칙은 리뷰 기준으로 남긴다.
-> 
-
-> 전용 검사기는 기존 Python tooling이 안정적으로 처리하지 못하는 프로젝트 맥락 기반 규칙부터 구현한다.
-> 
+>
+> 자동화 가능한 규칙은 `yngfmt`/`ynglint`로 처리하고, 의미 판단이 필요한 규칙은 리뷰 기준으로 남긴다.
+>
+> Result Object 검사는 프로젝트가 명시적으로 opt-in한 경우에만 활성화한다.
 
 ---
 
