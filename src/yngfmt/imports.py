@@ -2,11 +2,10 @@
 Project-aware import sorting and checking.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
+from enum import IntEnum
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Sequence
 import ast
 import sys
 import tomllib
@@ -16,6 +15,24 @@ _KEEP_IMPORTS = "# yngfmt: keep-imports"
 _OFF = "# yngfmt: off"
 _ON = "# yngfmt: on"
 _SKIP_FILE = "# yngfmt: skip-file"
+
+
+class ImportCategory(IntEnum):
+    """
+    Describe the top-level origin group of an import.
+    """
+    FUTURE = 0
+    STANDARD_LIBRARY = 1
+    THIRD_PARTY = 2
+    FIRST_PARTY = 3
+
+
+class ImportKind(IntEnum):
+    """
+    Describe the preferred ordering of Python import statement forms.
+    """
+    FROM = 0
+    IMPORT = 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,15 +48,14 @@ class ImportConfig:
 @dataclass(frozen=True, slots=True)
 class ImportRecord:
     """
-    Represent one top-level import statement and its source text.
+    Represent one top-level import statement and its canonical sort metadata.
     """
-    node: ast.Import | ast.ImportFrom
     text: str
     root: str
     module: str
     depth: int
-    kind: int
-    category: int
+    kind: ImportKind
+    category: ImportCategory
     segment: str
     original_index: int
     is_pinned: bool
@@ -68,6 +84,34 @@ def find_pyproject(start: Path) -> Path | None:
     return None
 
 
+def _mapping(value: object) -> dict[str, object]:
+    """
+    Return a string-keyed TOML mapping or an empty mapping.
+    """
+    if not isinstance(value, dict):
+        return {}
+    return {str(key): item for key, item in value.items()}
+
+
+def _string_tuple(value: object) -> tuple[str, ...]:
+    """
+    Normalize one TOML string or string sequence into a tuple.
+    """
+    if isinstance(value, str):
+        return (value,)
+    if not isinstance(value, (list, tuple)):
+        return ()
+    return tuple(item for item in value if isinstance(item, str))
+
+
+def _string_setting(settings: dict[str, object], key: str, default: str) -> str:
+    """
+    Read one string setting with a stable default.
+    """
+    value: object = settings.get(key, default)
+    return value if isinstance(value, str) else default
+
+
 def load_import_config(pyproject_path: Path | None) -> ImportConfig:
     """
     Load import settings from pyproject.toml.
@@ -76,39 +120,21 @@ def load_import_config(pyproject_path: Path | None) -> ImportConfig:
         return ImportConfig()
 
     data: dict[str, object] = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
-    tool_data: object = data.get("tool", {})
-    settings: dict[str, object] = {}
-    if isinstance(tool_data, dict):
-        yngfmt_data: object = tool_data.get("yngfmt", {})
-        if isinstance(yngfmt_data, dict):
-            imports_data: object = yngfmt_data.get("imports", {})
-            if isinstance(imports_data, dict):
-                settings = imports_data
-
-    first_party_value: object = settings.get("first-party", ())
-    if isinstance(first_party_value, str):
-        first_party: tuple[str, ...] = (first_party_value,)
-    elif isinstance(first_party_value, (list, tuple)):
-        first_party = tuple(
-            item
-            for item in first_party_value
-            if isinstance(item, str)
-        )
-    else:
-        first_party = ()
-
-    language_segment_value: object = settings.get("language-segment", "language")
-    config_segment_value: object = settings.get("config-segment", "config")
-    language_segment: str = (
-        language_segment_value if isinstance(language_segment_value, str) else "language"
-    )
-    config_segment: str = (
-        config_segment_value if isinstance(config_segment_value, str) else "config"
-    )
+    tool_settings: dict[str, object] = _mapping(value=data.get("tool", {}))
+    yngfmt_settings: dict[str, object] = _mapping(value=tool_settings.get("yngfmt", {}))
+    settings: dict[str, object] = _mapping(value=yngfmt_settings.get("imports", {}))
     return ImportConfig(
-        first_party=first_party,
-        language_segment=language_segment,
-        config_segment=config_segment,
+        first_party=_string_tuple(value=settings.get("first-party", ())),
+        language_segment=_string_setting(
+            settings=settings,
+            key="language-segment",
+            default="language",
+        ),
+        config_segment=_string_setting(
+            settings=settings,
+            key="config-segment",
+            default="config",
+        ),
     )
 
 
@@ -118,17 +144,41 @@ def _module_name(node: ast.Import | ast.ImportFrom) -> str:
     return node.names[0].name
 
 
+def _module_parts(node: ast.Import | ast.ImportFrom) -> tuple[str, ...]:
+    return tuple(part for part in _module_name(node=node).split(".") if part)
+
+
 def _root_name(node: ast.Import | ast.ImportFrom) -> str:
-    module: str = _module_name(node=node)
     if isinstance(node, ast.ImportFrom) and node.level:
         return ""
-    return module.split(".")[0]
+    parts: tuple[str, ...] = _module_parts(node=node)
+    return parts[0] if parts else ""
 
 
-def _segment_name(node: ast.Import | ast.ImportFrom, config: ImportConfig) -> str:
-    module: str = _module_name(node=node)
-    parts: list[str] = [part for part in module.split(".") if part]
+def _category(node: ast.Import | ast.ImportFrom, config: ImportConfig) -> ImportCategory:
+    if isinstance(node, ast.ImportFrom) and node.module == "__future__":
+        return ImportCategory.FUTURE
+    if isinstance(node, ast.ImportFrom) and node.level:
+        return ImportCategory.FIRST_PARTY
 
+    root: str = _root_name(node=node)
+    if root in sys.stdlib_module_names:
+        return ImportCategory.STANDARD_LIBRARY
+    if root in config.first_party:
+        return ImportCategory.FIRST_PARTY
+    return ImportCategory.THIRD_PARTY
+
+
+def _kind(node: ast.Import | ast.ImportFrom) -> ImportKind:
+    return ImportKind.FROM if isinstance(node, ast.ImportFrom) else ImportKind.IMPORT
+
+
+def _depth(node: ast.Import | ast.ImportFrom) -> int:
+    return len(_module_parts(node=node))
+
+
+def _candidate_segment(node: ast.Import | ast.ImportFrom, config: ImportConfig) -> str:
+    parts: tuple[str, ...] = _module_parts(node=node)
     if isinstance(node, ast.ImportFrom) and node.level:
         return parts[0] if parts else ""
     if not parts or parts[0] not in config.first_party:
@@ -136,27 +186,34 @@ def _segment_name(node: ast.Import | ast.ImportFrom, config: ImportConfig) -> st
     return parts[1] if len(parts) > 1 else ""
 
 
-def _category(node: ast.Import | ast.ImportFrom, config: ImportConfig) -> int:
-    if isinstance(node, ast.ImportFrom) and node.module == "__future__":
-        return 0
-    if isinstance(node, ast.ImportFrom) and node.level:
-        return 3
+def _layer_segments(
+    nodes: Sequence[ast.Import | ast.ImportFrom],
+    config: ImportConfig,
+) -> frozenset[str]:
+    """
+    Detect actual nested first-party package segments without splitting flat modules.
+    """
+    segments: set[str] = {config.language_segment, config.config_segment}
+    for node in nodes:
+        if _category(node=node, config=config) != ImportCategory.FIRST_PARTY:
+            continue
 
-    root: str = _root_name(node=node)
-    if root in sys.stdlib_module_names:
-        return 1
-    if root in config.first_party:
-        return 3
-    return 2
+        parts: tuple[str, ...] = _module_parts(node=node)
+        required_depth: int = 2 if isinstance(node, ast.ImportFrom) and node.level else 3
+        if len(parts) >= required_depth:
+            segment: str = _candidate_segment(node=node, config=config)
+            if segment:
+                segments.add(segment)
+    return frozenset(segments)
 
 
-def _kind(node: ast.Import | ast.ImportFrom) -> int:
-    return 0 if isinstance(node, ast.ImportFrom) else 1
-
-
-def _depth(node: ast.Import | ast.ImportFrom) -> int:
-    module: str = _module_name(node=node)
-    return len([part for part in module.split(".") if part])
+def _segment_name(
+    node: ast.Import | ast.ImportFrom,
+    config: ImportConfig,
+    layer_segments: frozenset[str],
+) -> str:
+    segment: str = _candidate_segment(node=node, config=config)
+    return segment if segment in layer_segments else ""
 
 
 def _segment_order(segment: str, config: ImportConfig) -> tuple[int, str]:
@@ -164,7 +221,7 @@ def _segment_order(segment: str, config: ImportConfig) -> tuple[int, str]:
         return 0, ""
     if segment == config.config_segment:
         return 2, ""
-    return 1, segment.lower()
+    return 1, segment.casefold()
 
 
 def _sort_key(record: ImportRecord, config: ImportConfig) -> tuple[object, ...]:
@@ -174,12 +231,12 @@ def _sort_key(record: ImportRecord, config: ImportConfig) -> tuple[object, ...]:
     )
     return (
         record.category,
-        segment_order if record.category == 3 else (0, ""),
+        segment_order if record.category == ImportCategory.FIRST_PARTY else (0, ""),
         record.kind,
-        record.root.lower(),
+        record.root.casefold(),
         record.depth,
-        record.module.lower(),
-        record.text.lower(),
+        record.module.casefold(),
+        record.text.casefold(),
         record.original_index,
     )
 
@@ -198,10 +255,9 @@ def _top_level_import_nodes(tree: ast.Module) -> list[ast.Import | ast.ImportFro
         start_index = 1
 
     for node in body[start_index:]:
-        if isinstance(node, (ast.Import, ast.ImportFrom)):
-            nodes.append(node)
-            continue
-        break
+        if not isinstance(node, (ast.Import, ast.ImportFrom)):
+            break
+        nodes.append(node)
     return nodes
 
 
@@ -284,6 +340,7 @@ def _records(
     records: list[ImportRecord] = []
     previous_end: int = 1
     final_end: int = nodes[-1].end_lineno or nodes[-1].lineno
+    layer_segments: frozenset[str] = _layer_segments(nodes=nodes, config=config)
 
     for index, node in enumerate(nodes):
         start_line: int = _attached_start(
@@ -293,17 +350,19 @@ def _records(
         )
         node_end: int = node.end_lineno or node.lineno
         end_line: int = _attached_end(lines=lines, end_line=node_end)
-        text: str = "".join(lines[start_line - 1 : end_line]).strip("\n")
         records.append(
             ImportRecord(
-                node=node,
-                text=text,
+                text="".join(lines[start_line - 1 : end_line]).strip("\n"),
                 root=_root_name(node=node),
                 module=_module_name(node=node),
                 depth=_depth(node=node),
                 kind=_kind(node=node),
                 category=_category(node=node, config=config),
-                segment=_segment_name(node=node, config=config),
+                segment=_segment_name(
+                    node=node,
+                    config=config,
+                    layer_segments=layer_segments,
+                ),
                 original_index=index,
                 is_pinned=_record_is_pinned(
                     start_line=start_line,
@@ -352,7 +411,7 @@ def _separator(
         return "\n"
     if previous.category != current.category:
         return "\n\n"
-    if current.category != 3 or previous.segment == current.segment:
+    if current.category != ImportCategory.FIRST_PARTY or previous.segment == current.segment:
         return "\n"
     if current.segment == config.config_segment:
         return "\n\n\n"
@@ -382,12 +441,11 @@ def sort_imports(source: str, config: ImportConfig = ImportConfig()) -> str:
     if not nodes:
         return source
 
-    protected_lines: set[int] = _protected_lines(source=source)
     records, first_line, last_line = _records(
         source=source,
         nodes=nodes,
         config=config,
-        protected_lines=protected_lines,
+        protected_lines=_protected_lines(source=source),
     )
     sorted_records: list[ImportRecord] = _sort_with_pinned_records(
         records=records,
