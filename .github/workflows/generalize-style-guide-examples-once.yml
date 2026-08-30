@@ -1,0 +1,52 @@
+name: Generalize style guide examples once
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Replace project-specific examples
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("docs/python-style-guide.ko.md")
+          text = path.read_text(encoding="utf-8")
+
+          replacements = {
+              'self.assertEqual(comparison_process.returncode, 0, comparison_process.stdout + comparison_process.stderr)\nprocess(first + second + third, lower <= value < upper)':
+              'validator.check_values(actual_value, expected_value, offset + tolerance)\nprocess(first + second + third, lower <= value < upper)',
+              'return (\n    project_directory\n    / "Assets"\n    / "Audio"\n).as_posix()':
+              'return (\n    base_path\n    / "data"\n    / "output"\n).resolve()',
+              'self.assertIn("first", output)\nself.assertEqual(actual, build_expected(enabled=True, timeout=10))\nself.assertIn("second", output)':
+              'validator.check_value(actual_value)\nvalidator.check_range(actual_value, build_range(minimum=0, maximum=10))\nvalidator.check_state(current_state)',
+              '`self.assertEqual`, `self.assertIn`은 같은 `self.assert*` family이며 `client.get_value`, `client.get_other`는 같은 `client.get_*` family다.':
+              '`validator.check_value`, `validator.check_range`는 같은 `validator.check_*` family이며 `client.get_value`, `client.get_other`는 같은 `client.get_*` family다.',
+          }
+
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit(f"expected example not found: {old[:80]!r}")
+              text = text.replace(old, new)
+
+          path.write_text(text, encoding="utf-8")
+      - name: Commit generalized examples and remove workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/generalize-style-guide-examples-once.yml
+          git add docs/python-style-guide.ko.md
+          git commit -m "Generalize style guide examples"
+          git push
