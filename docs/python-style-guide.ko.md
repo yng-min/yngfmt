@@ -305,23 +305,22 @@ user = {
 
 Dictionary literal, list literal, function argument, chained expression은 여러 줄로 펼쳤을 때 의미 구조와 처리 단계를 더 명확하게 드러낼 수 있다면 multi-line 형태로 작성할 수 있다.
 
-줄바꿈 여부는 고정된 line length가 아니라 다음 기준을 바탕으로 판단한다.
+줄바꿈 여부는 전역 line length가 아니라 다음 기준을 바탕으로 판단한다.
 
-- 표현식이 자체적인 내부 구조를 가지는가
+- 표현식에 nested call, collection/comprehension, conditional, lambda처럼 자체적인 내부 구조가 있는가
 - 여러 값이나 처리 단계의 경계를 구분할 필요가 있는가
-- 중첩 호출, collection literal, comprehension, 조건식, 연산식 등이 포함되어 있는가
-- 주석이나 설명을 보존하기 위해 별도의 줄이 필요한가
+- 주석이나 multi-line string을 보존하기 위해 별도의 줄이 필요한가
+- 인접한 동일 계열 호출과 shape을 맞출 필요가 있는가
 
 느슨한 기준으로, **dictionary literal의 key가 5개 이상이면 multi-line 형태를 우선 고려한다.** 단, 이는 **강제 규칙이 아니다.**
 
-인자가 하나인 function call은 해당 인자가 단순한 값이나 참조인 경우 single-line 형태를 기본으로 한다.
+평평한 arithmetic, comparison, boolean expression은 연산자가 있다는 이유만으로 복잡한 구조로 취급하지 않는다. 내부에 nested call, collection, conditional 등 별도의 구조가 없다면 flat expression으로 볼 수 있다.
 
 ```python
-result = service.process(article=article)
-repository.save(data)
+process(first + second + third, lower <= value < upper)
 ```
 
-유일한 인자가 중첩 호출, collection literal, comprehension, 조건식, 연산식처럼 자체적인 구조를 가진다면 multi-line 형태를 사용할 수 있다.
+유일한 인자가 nested call, collection literal, comprehension, conditional expression처럼 자체적인 구조를 가지면 multi-line 형태를 사용할 수 있다.
 
 ```python
 result = service.process(
@@ -341,15 +340,11 @@ service.process(
 )
 ```
 
-줄바꿈 여부를 판단할 때 line length는 독립적인 기준으로 사용하지 않는다.
-
-한 줄의 길이가 짧거나 길다는 사실만으로 표현식을 접거나 펼치지 않는다.
+일반 formatter 판단에서는 한 줄의 길이가 짧거나 길다는 사실만으로 표현식을 접거나 펼치지 않는다. 단, homogeneous call run의 shape 일관성을 맞추기 위해 multi-line call을 한 줄로 접는 경우에만 비정상적으로 긴 line 생성을 막는 제한적인 길이 guard를 사용할 수 있다.
 
 > **설계 의도**
-> 
-
-> 가독성은 문자 수보다 문맥과 표현식의 구조에 따라 달라진다. 줄바꿈은 고정된 최대 길이를 맞추기 위한 것이 아니라, 논리 구조와 처리 단계의 경계를 드러내고 복잡한 표현식을 더 쉽게 읽을 수 있도록 하기 위해 사용한다.
-> 
+>
+> 가독성은 문자 수보다 문맥과 표현식의 구조에 따라 달라진다. 줄바꿈은 고정된 최대 길이를 맞추기 위한 것이 아니라, 논리 구조와 처리 단계의 경계를 드러내고 비슷한 코드의 시각적 리듬을 일관되게 유지하기 위해 사용한다.
 
 ---
 
@@ -1073,7 +1068,8 @@ logical stage 구분, naming intent, 책임 분리처럼 사람의 설계 판단
 | Docstring | quote / delimiter / spacing layout | `yngfmt` / `ynglint` | Error | Low |
 | Blank Line | mechanical definition/body spacing | `yngfmt` / `ynglint` | Error | Low |
 | Blank Line | logical stage spacing | code review | Review | High |
-| Line Breaking | simple and homogeneous call formatting | `yngfmt` / `ynglint` | Error | Low |
+| Line Breaking | simple call formatting | `yngfmt` / `ynglint` | Error | Low |
+| Line Breaking | homogeneous call-run consistency | `yngfmt --check` | Error | Low |
 | Import | origin / segment grouping / ordering | `yngfmt` / `ynglint` | Error | Low |
 | Naming | class / function / method naming format | `ynglint` | Error | Low |
 | Naming | semantic naming intent | code review | Review | High |
