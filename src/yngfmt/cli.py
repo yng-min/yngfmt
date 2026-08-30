@@ -9,7 +9,6 @@ from pathlib import Path
 import argparse
 
 from yngfmt.formatter import format_path
-
 from yngfmt.imports import find_pyproject, load_import_config
 
 
@@ -17,9 +16,11 @@ def _python_files(paths: Iterable[Path]) -> list[Path]:
     resolved_files: set[Path] = set()
     for path in paths:
         if path.is_dir():
-            resolved_files.update(candidate
-            for candidate in path.rglob("*.py")
-            if not any(part.startswith(".") for part in candidate.parts))
+            resolved_files.update(
+                candidate
+                for candidate in path.rglob("*.py")
+                if not any(part.startswith(".") for part in candidate.parts)
+            )
         elif path.suffix == ".py":
             resolved_files.add(path)
     return sorted(resolved_files)
@@ -67,8 +68,10 @@ def main() -> int:
             print(f"{action} {path}")
 
     unchanged_count: int = len(files) - len(changed_files)
-    print(f"{len(changed_files)} file(s) changed, "
-    f"{unchanged_count} file(s) left unchanged")
+    print(
+        f"{len(changed_files)} file(s) changed, "
+        f"{unchanged_count} file(s) left unchanged"
+    )
     return 1 if arguments.check and changed_files else 0
 
 

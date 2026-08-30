@@ -89,9 +89,11 @@ def load_import_config(pyproject_path: Path | None) -> ImportConfig:
     if isinstance(first_party_value, str):
         first_party: tuple[str, ...] = (first_party_value,)
     elif isinstance(first_party_value, (list, tuple)):
-        first_party = tuple(item
-        for item in first_party_value
-        if isinstance(item, str))
+        first_party = tuple(
+            item
+            for item in first_party_value
+            if isinstance(item, str)
+        )
     else:
         first_party = ()
 
@@ -292,22 +294,24 @@ def _records(
         node_end: int = node.end_lineno or node.lineno
         end_line: int = _attached_end(lines=lines, end_line=node_end)
         text: str = "".join(lines[start_line - 1 : end_line]).strip("\n")
-        records.append(ImportRecord(
-            node=node,
-            text=text,
-            root=_root_name(node=node),
-            module=_module_name(node=node),
-            depth=_depth(node=node),
-            kind=_kind(node=node),
-            category=_category(node=node, config=config),
-            segment=_segment_name(node=node, config=config),
-            original_index=index,
-            is_pinned=_record_is_pinned(
-                start_line=start_line,
-                end_line=end_line,
-                protected_lines=protected_lines,
-            ),
-        ))
+        records.append(
+            ImportRecord(
+                node=node,
+                text=text,
+                root=_root_name(node=node),
+                module=_module_name(node=node),
+                depth=_depth(node=node),
+                kind=_kind(node=node),
+                category=_category(node=node, config=config),
+                segment=_segment_name(node=node, config=config),
+                original_index=index,
+                is_pinned=_record_is_pinned(
+                    start_line=start_line,
+                    end_line=end_line,
+                    protected_lines=protected_lines,
+                ),
+            )
+        )
         previous_end = end_line + 1
         final_end = end_line
 
@@ -416,9 +420,11 @@ def check_imports(
 
     nodes: list[ast.Import | ast.ImportFrom] = _top_level_import_nodes(tree=tree)
     line: int = nodes[0].lineno if nodes else 1
-    return [ImportIssue(
-        line=line,
-        column=1,
-        code="YNG400",
-        message="import section does not match project import ordering rules",
-    )]
+    return [
+        ImportIssue(
+            line=line,
+            column=1,
+            code="YNG400",
+            message="import section does not match project import ordering rules",
+        )
+    ]

@@ -8,7 +8,6 @@ from argparse import ArgumentParser, Namespace
 from pathlib import Path
 
 from yngfmt.imports import find_pyproject, load_import_config
-
 from yngfmt.linter import iter_python_files, lint_path, load_result_config
 
 
@@ -41,11 +40,13 @@ def main() -> int:
 
     diagnostics = []
     for path in files:
-        diagnostics.extend(lint_path(
-            path=path,
-            import_config=import_config,
-            result_config=result_config
-        ))
+        diagnostics.extend(
+            lint_path(
+                path=path,
+                import_config=import_config,
+                result_config=result_config
+            )
+        )
 
     for diagnostic in diagnostics:
         print(diagnostic.render())

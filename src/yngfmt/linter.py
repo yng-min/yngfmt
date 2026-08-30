@@ -4,17 +4,16 @@ Style guide linter engine.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Iterable, Sequence
 import ast
 import io
 import re
 import tokenize
 import tomllib
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Iterable, Sequence
 
 from yngfmt.imports import ImportConfig, check_imports
-
 from yngfmt.mechanical_rules import check_mechanical_rules
 
 
@@ -212,7 +211,7 @@ def _check_tokens(source: str, path: Path, tree: ast.AST) -> list[Diagnostic]:
         prefix, quote = parsed
         position = token.start
         is_docstring = position in docstrings
-        if is_docstring and quote != "\"\"\"":
+        if is_docstring and quote != '\"\"\"':
             diagnostics.append(Diagnostic(
                 path=path,
                 line=token.start[0],

@@ -7,8 +7,8 @@ from __future__ import annotations
 from typing import Final, cast
 import json
 
-from libcst.metadata import CodeRange, MetadataWrapper, ParentNodeProvider, PositionProvider
 import libcst as cst
+from libcst.metadata import CodeRange, MetadataWrapper, ParentNodeProvider, PositionProvider
 
 from yngfmt.structural_layout import collapse_redundant_outer_expansions
 
@@ -60,7 +60,7 @@ def _double_quoted_bytes(value: bytes, prefix: str) -> str:
         if byte == 92:
             escaped_characters.append("\\\\")
         elif byte == 34:
-            escaped_characters.append("\\\"")
+            escaped_characters.append('\\"')
         elif byte in _BYTE_CONTROL_CHARACTERS:
             escaped_characters.append(_BYTE_CONTROL_CHARACTERS[byte])
         elif 32 <= byte < 127:
@@ -77,13 +77,13 @@ def _has_odd_trailing_backslashes(value: str) -> bool:
 
 
 def _raw_double_quoted_string(value: str, prefix: str) -> str | None:
-    if "\"" in value or _has_odd_trailing_backslashes(value=value):
+    if '"' in value or _has_odd_trailing_backslashes(value=value):
         return None
     return f'{prefix}"{value}"'
 
 
 def _double_quoted_literal(node: cst.SimpleString) -> str | None:
-    if node.quote in {"\"\"\"", "'''"} or node.quote == "\"":
+    if node.quote in {'"""', "'''"} or node.quote == '"':
         return None
 
     prefix: str = node.prefix
@@ -107,7 +107,7 @@ def _double_quoted_literal(node: cst.SimpleString) -> str | None:
 
 
 def _plain_string_value(node: cst.SimpleString) -> str | None:
-    if node.prefix or node.quote in {"\"\"\"", "'''"}:
+    if node.prefix or node.quote in {'"""', "'''"}:
         return None
 
     evaluated_value: str | bytes = node.evaluated_value
