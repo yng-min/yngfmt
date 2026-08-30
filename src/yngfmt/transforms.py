@@ -68,7 +68,8 @@ def _double_quoted_bytes(value: bytes, prefix: str) -> str:
         else:
             escaped_characters.append(f"\\x{byte:02x}")
 
-    return f'{prefix}"{"".join(escaped_characters)}"'
+    joined_characters: str = "".join(escaped_characters)
+    return f"{prefix}\"{joined_characters}\""
 
 
 def _has_odd_trailing_backslashes(value: str) -> bool:
@@ -79,7 +80,7 @@ def _has_odd_trailing_backslashes(value: str) -> bool:
 def _raw_double_quoted_string(value: str, prefix: str) -> str | None:
     if "\"" in value or _has_odd_trailing_backslashes(value=value):
         return None
-    return f'{prefix}"{value}"'
+    return f"{prefix}\"{value}\""
 
 
 def _double_quoted_literal(node: cst.SimpleString) -> str | None:
@@ -113,7 +114,6 @@ def _plain_string_value(node: cst.SimpleString) -> str | None:
     evaluated_value: str | bytes = node.evaluated_value
     if not isinstance(evaluated_value, str):
         return None
-
     return evaluated_value
 
 
@@ -121,7 +121,6 @@ class YngminStyleTransformer(cst.CSTTransformer):
     """
     Apply rules that mechanical whitespace normalization cannot represent safely.
     """
-
     METADATA_DEPENDENCIES = (ParentNodeProvider, PositionProvider)
 
     def _inside_formatted_string(self, node: cst.CSTNode) -> bool:
@@ -176,9 +175,7 @@ class YngminStyleTransformer(cst.CSTTransformer):
                 updated_slices.append(slice_element)
                 continue
 
-            updated_string: cst.SimpleString = string_node.with_changes(
-                value=_single_quoted_string(value=value)
-            )
+            updated_string: cst.SimpleString = string_node.with_changes(value=_single_quoted_string(value=value))
             updated_index: cst.Index = slice_value.with_changes(value=updated_string)
             updated_slices.append(slice_element.with_changes(slice=updated_index))
         return updated_node.with_changes(slice=tuple(updated_slices))
@@ -190,28 +187,17 @@ class YngminStyleTransformer(cst.CSTTransformer):
     ) -> cst.Dict:
         if not original_node.elements:
             return updated_node.with_changes(
-                lbrace=updated_node.lbrace.with_changes(
-                    whitespace_after=cst.SimpleWhitespace("")
-                ),
-                rbrace=updated_node.rbrace.with_changes(
-                    whitespace_before=cst.SimpleWhitespace("")
-                ),
+                lbrace=updated_node.lbrace.with_changes(whitespace_after=cst.SimpleWhitespace("")),
+                rbrace=updated_node.rbrace.with_changes(whitespace_before=cst.SimpleWhitespace("")),
             )
 
-        position: CodeRange = cast(
-            CodeRange,
-            self.get_metadata(PositionProvider, original_node),
-        )
+        position: CodeRange = cast(CodeRange, self.get_metadata(PositionProvider, original_node))
         if position.start.line != position.end.line:
             return updated_node
 
         return updated_node.with_changes(
-            lbrace=updated_node.lbrace.with_changes(
-                whitespace_after=cst.SimpleWhitespace(" ")
-            ),
-            rbrace=updated_node.rbrace.with_changes(
-                whitespace_before=cst.SimpleWhitespace(" ")
-            ),
+            lbrace=updated_node.lbrace.with_changes(whitespace_after=cst.SimpleWhitespace(" ")),
+            rbrace=updated_node.rbrace.with_changes(whitespace_before=cst.SimpleWhitespace(" ")),
         )
 
     def leave_TrailingWhitespace(
