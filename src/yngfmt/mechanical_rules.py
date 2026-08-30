@@ -24,9 +24,7 @@ _IGNORED_CALL_TOKEN_TYPES: Final[frozenset[int]] = frozenset({
     tokenize.NEWLINE,
     tokenize.NL,
 })
-_DOCSTRING_CLOSING_LINE_PATTERN: Final[re.Pattern[str]] = re.compile(
-    r"(?:\r\n|\n)[ \t]*\Z"
-)
+_DOCSTRING_CLOSING_LINE_PATTERN: Final[re.Pattern[str]] = re.compile(r"(?:\r\n|\n)[ \t]*\Z")
 
 
 @dataclass(frozen=True, slots=True)
