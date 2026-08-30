@@ -10,9 +10,7 @@ import json
 from libcst.metadata import CodeRange, MetadataWrapper, ParentNodeProvider, PositionProvider
 import libcst as cst
 
-from yngfmt.structural_layout import collapse_redundant_outer_expansions
-
-from yngfmt.structural_layout import compact_thin_function_spacing
+from yngfmt.structural_layout import collapse_redundant_outer_expansions, compact_thin_function_spacing
 
 
 _CONTROL_CHARACTERS: Final[dict[str, str]] = {
