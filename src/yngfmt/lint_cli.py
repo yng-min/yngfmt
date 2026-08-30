@@ -8,6 +8,7 @@ from argparse import ArgumentParser, Namespace
 from pathlib import Path
 
 from yngfmt.imports import ImportConfig, find_pyproject, load_import_config
+
 from yngfmt.linter import Diagnostic, ResultConfig, iter_python_files, lint_path, load_result_config
 
 

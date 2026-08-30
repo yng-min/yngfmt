@@ -14,6 +14,7 @@ import tokenize
 import tomllib
 
 from yngfmt.imports import ImportConfig, check_imports
+
 from yngfmt.mechanical_rules import check_mechanical_rules
 
 

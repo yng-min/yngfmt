@@ -9,6 +9,7 @@ from pathlib import Path
 import argparse
 
 from yngfmt.formatter import format_path
+
 from yngfmt.imports import ImportConfig, find_pyproject, load_import_config
 
 
