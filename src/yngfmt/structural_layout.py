@@ -101,6 +101,33 @@ def _contains_comment(segment: str) -> bool:
     )
 
 
+def _is_implicit_string_concatenation(source: str, node: ast.expr) -> bool:
+    """
+    Return whether one constant is formed from adjacent string literal tokens.
+    """
+    if not isinstance(node, ast.Constant) or not isinstance(node.value, (str, bytes)):
+        return False
+
+    segment: str | None = ast.get_source_segment(source, node)
+    if segment is None:
+        return False
+
+    string_token_count: int = sum(
+        token.type == tokenize.STRING
+        for token in tokenize.generate_tokens(io.StringIO(segment).readline)
+    )
+    return string_token_count > 1
+
+
+def _is_safe_local_child(source: str, child: ast.expr) -> bool:
+    """
+    Return whether a multi-line child can safely keep its own local expansion.
+    """
+    if isinstance(child, _SAFE_LOCAL_CHILD_TYPES):
+        return True
+    return _is_implicit_string_concatenation(source=source, node=child)
+
+
 def _strip_outer_trailing_comma(line: str) -> str:
     """
     Remove a separator comma belonging to a now-compact outer wrapper.
@@ -158,7 +185,7 @@ def _collapse_segment(segment: str, opener: str, closer: str) -> str | None:
     return newline.join([merged_first_line, *dedented_lines[1:-1], merged_last_line])
 
 
-def _single_multiline_child(node: ast.expr) -> tuple[ast.expr, str, str] | None:
+def _single_multiline_child(source: str, node: ast.expr) -> tuple[ast.expr, str, str] | None:
     """
     Return one locally expandable child and the redundant parent delimiters.
     """
@@ -181,7 +208,7 @@ def _single_multiline_child(node: ast.expr) -> tuple[ast.expr, str, str] | None:
     else:
         return None
 
-    if not isinstance(child, _SAFE_LOCAL_CHILD_TYPES):
+    if not _is_safe_local_child(source=source, child=child):
         return None
     if child.end_lineno is None or child.lineno == child.end_lineno:
         return None
@@ -199,7 +226,7 @@ def _collapse_once(source: str) -> str | None:
         if not isinstance(node, ast.expr):
             continue
 
-        child_layout: tuple[ast.expr, str, str] | None = _single_multiline_child(node=node)
+        child_layout: tuple[ast.expr, str, str] | None = _single_multiline_child(source=source, node=node)
         if child_layout is None:
             continue
 
