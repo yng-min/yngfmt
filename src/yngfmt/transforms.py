@@ -12,6 +12,8 @@ import libcst as cst
 
 from yngfmt.structural_layout import collapse_redundant_outer_expansions
 
+from yngfmt.structural_layout import compact_thin_function_spacing
+
 
 _CONTROL_CHARACTERS: Final[dict[str, str]] = {
     "\a": "\\a",
@@ -217,4 +219,5 @@ def apply_custom_transforms(source: str) -> str:
     module: cst.Module = cst.parse_module(source)
     wrapper: MetadataWrapper = MetadataWrapper(module)
     transformed_module: cst.Module = wrapper.visit(YngminStyleTransformer())
-    return collapse_redundant_outer_expansions(source=transformed_module.code)
+    structurally_compact: str = collapse_redundant_outer_expansions(source=transformed_module.code)
+    return compact_thin_function_spacing(source=structurally_compact)
