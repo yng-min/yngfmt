@@ -7,7 +7,7 @@
 - Python style guide: `docs/python-style-guide.ko.md`
 - formatter/linter 구현: `src/yngfmt/`
 
-현재 패키지 버전은 `0.4.0`이며 style guide v4 (260726)를 기준으로 합니다.
+현재 패키지 버전은 `0.5.0`이며 style guide v4 (260726)를 기준으로 합니다.
 
 ## 설치
 
@@ -20,7 +20,7 @@ python -m pip install -e ".[dev]"
 릴리스 tag 기준으로 직접 설치할 수도 있습니다.
 
 ```bash
-python -m pip install "git+https://github.com/yng-min/yngfmt.git@v0.4.0"
+python -m pip install "git+https://github.com/yng-min/yngfmt.git@v0.5.0"
 ```
 
 GitHub Release에는 wheel과 sdist를 첨부하도록 구성합니다.
@@ -56,9 +56,23 @@ marker-fields = ["error", "code"]
 aliases = ["success", "msg", "payload"]
 ```
 
+## Line length policy
+
+`yngfmt`에는 최대 line length 개념이 없습니다.
+
+- column 수를 기준으로 single-line 코드를 자동으로 줄바꿈하지 않습니다.
+- 긴 line을 줄이기 위한 formatter rule을 사용하지 않습니다.
+- `--line-length` 옵션을 제공하지 않습니다.
+- function call의 single-line/multi-line 판단은 line length가 아니라 style guide에 정의된 argument 수와 expression 구조를 기준으로 합니다.
+- 구조적인 call-format rule은 `ynglint`의 `YNG701`~`YNG704`가 검증합니다.
+
+따라서 line이 길다는 이유만으로 formatter가 코드 구조를 변경하는 동작은 허용하지 않습니다.
+
 ## 책임 경계
 
 `yngfmt`는 안전하게 자동 수정 가능한 기계적 규칙만 수정합니다.
+
+기본 mechanical whitespace normalization도 line-length 계열 rule을 선택하지 않은 상태로 실행하며, 외부 formatter 설정을 읽지 않습니다.
 
 `ynglint`는 자동 수정이 위험하지만 정적으로 확실하게 판정 가능한 규칙을 검사합니다.
 
