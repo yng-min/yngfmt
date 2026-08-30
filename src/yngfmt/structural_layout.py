@@ -26,6 +26,13 @@ _SIMPLE_CALL_ARGUMENT_TYPES: Final[tuple[type[ast.expr], ...]] = (
     ast.JoinedStr,
     ast.Name,
 )
+_NESTED_EXPRESSION_PARENTS: Final[tuple[type[ast.AST], ...]] = (
+    ast.Call,
+    ast.Dict,
+    ast.List,
+    ast.Set,
+    ast.Tuple,
+)
 _COMPLEX_STATEMENT_TYPES: Final[tuple[type[ast.stmt], ...]] = (
     ast.AsyncFor,
     ast.AsyncWith,
@@ -264,12 +271,19 @@ def _simple_call_replacement(source: str, node: ast.Call) -> str | None:
 
 def _compact_simple_call_once(source: str) -> str | None:
     """
-    Compact the smallest deterministic multiline call without consulting line width.
+    Compact the smallest deterministic top-level multiline call without consulting line width.
     """
     tree: ast.Module = ast.parse(source, type_comments=True)
+    parents: dict[ast.AST, ast.AST] = {
+        child: parent
+        for parent in ast.walk(tree)
+        for child in ast.iter_child_nodes(parent)
+    }
     candidates: list[tuple[int, int, str]] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
+            continue
+        if isinstance(parents.get(node), _NESTED_EXPRESSION_PARENTS):
             continue
         replacement: str | None = _simple_call_replacement(source=source, node=node)
         if replacement is None:
@@ -291,7 +305,7 @@ def _compact_simple_call_once(source: str) -> str | None:
 
 def compact_simple_calls(source: str) -> str:
     """
-    Keep simple zero- and one-argument calls on one line, including call chains.
+    Keep simple zero- and one-argument top-level calls on one line, including call chains.
     """
     current_source: str = source
     while True:
