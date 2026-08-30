@@ -545,7 +545,7 @@ Function call의 single-line 또는 multi-line 형태는 전역 line length가 �
 Flat simple expression에는 단순 값/참조뿐 아니라 내부에 nested call, collection, conditional 등 별도 구조가 없는 평평한 arithmetic, comparison, boolean expression을 포함한다.
 
 ```python
-self.assertEqual(comparison_process.returncode, 0, comparison_process.stdout + comparison_process.stderr)
+validator.check_values(actual_value, expected_value, offset + tolerance)
 process(first + second + third, lower <= value < upper)
 ```
 
@@ -567,24 +567,24 @@ Zero-argument call은 call 자체를 `method()` 형태로 유지한다. Receiver
 
 ```python
 return (
-    project_directory
-    / "Assets"
-    / "Audio"
-).as_posix()
+    base_path
+    / "data"
+    / "output"
+).resolve()
 ```
 
 ### 4.8.2 Homogeneous Call Run
 
 같은 receiver에서 같은 method family가 다른 statement 없이 연속되면 하나의 homogeneous call run으로 취급한다.
 
-CamelCase method는 첫 대문자 전 prefix, snake_case method는 첫 underscore 전 prefix를 method family로 본다. 예를 들어 `self.assertEqual`, `self.assertIn`은 같은 `self.assert*` family이며 `client.get_value`, `client.get_other`는 같은 `client.get_*` family다.
+CamelCase method는 첫 대문자 전 prefix, snake_case method는 첫 underscore 전 prefix를 method family로 본다. 예를 들어 `validator.check_value`, `validator.check_range`는 같은 `validator.check_*` family이며 `client.get_value`, `client.get_other`는 같은 `client.get_*` family다.
 
 동일 run에서는 가능한 호출의 shape을 일관되게 맞춘다. 일반 규칙상 nested structure 때문에 multi-line인 call도, 주석과 multi-line string을 훼손하지 않고 한 줄로 안전하게 표현할 수 있으며 결과가 지나치게 길지 않다면 compact할 수 있다.
 
 ```python
-self.assertIn("first", output)
-self.assertEqual(actual, build_expected(enabled=True, timeout=10))
-self.assertIn("second", output)
+validator.check_value(actual_value)
+validator.check_range(actual_value, build_range(minimum=0, maximum=10))
+validator.check_state(current_state)
 ```
 
 이 일관성 보정에서만 compact 결과가 **200자 이하인지** 확인하는 제한적인 guard를 사용한다. 이는 전역 maximum line length가 아니며 일반 코드의 줄바꿈 기준으로 사용하지 않는다.
