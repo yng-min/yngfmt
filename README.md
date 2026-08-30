@@ -107,4 +107,4 @@ pyright
 python -m build
 ```
 
-GitHub Actions에서 테스트, Pyright, package build, CLI smoke test를 실행합니다.
+GitHub Actions에서 main push와 pull request마다 테스트, Pyright, package build, CLI smoke test를 실행합니다.
