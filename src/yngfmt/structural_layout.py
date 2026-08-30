@@ -9,15 +9,13 @@ import tokenize
 
 
 _INDENT: Final[str] = "    "
-_IGNORED_TOKEN_TYPES: Final[frozenset[int]] = frozenset(
-    {
-        tokenize.DEDENT,
-        tokenize.ENDMARKER,
-        tokenize.INDENT,
-        tokenize.NEWLINE,
-        tokenize.NL,
-    }
-)
+_IGNORED_TOKEN_TYPES: Final[frozenset[int]] = frozenset({
+    tokenize.DEDENT,
+    tokenize.ENDMARKER,
+    tokenize.INDENT,
+    tokenize.NEWLINE,
+    tokenize.NL,
+})
 
 
 def _character_column(line: str, byte_column: int) -> int:
@@ -65,10 +63,8 @@ def _contains_comment(segment: str) -> bool:
     """
     Return whether a source segment contains a comment token.
     """
-    return any(
-        token.type == tokenize.COMMENT
-        for token in tokenize.generate_tokens(io.StringIO(segment).readline)
-    )
+    return any(token.type == tokenize.COMMENT
+    for token in tokenize.generate_tokens(io.StringIO(segment).readline))
 
 
 def _strip_outer_trailing_comma(line: str) -> str:
@@ -112,10 +108,8 @@ def _collapse_segment(
     body_indent: str = _leading_whitespace(line=middle_lines[0])
     if body_indent != f"{outer_indent}{_INDENT}":
         return None
-    if any(
-        line.strip() and not line.startswith(body_indent)
-        for line in middle_lines
-    ):
+    if any(line.strip() and not line.startswith(body_indent)
+    for line in middle_lines):
         return None
 
     dedented_lines: list[str] = [
