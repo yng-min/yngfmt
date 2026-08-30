@@ -4,6 +4,9 @@ Tests for supported formatter rules.
 
 from textwrap import dedent
 
+import pytest
+
+from yngfmt import formatter
 from yngfmt.formatter import format_code
 
 
@@ -74,6 +77,12 @@ def test_uses_one_space_before_inline_directive() -> None:
     assert format_code(source) == "import plugin_b # yngfmt: keep-imports\n"
 
 
+def test_applies_explicit_mechanical_whitespace_fixes() -> None:
+    source: str = "value=process( 1,2 )\n"
+
+    assert format_code(source) == "value = process(1, 2)\n"
+
+
 def test_never_wraps_code_by_line_length() -> None:
     source: str = (
         'result = service.process(first="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", '
@@ -83,6 +92,40 @@ def test_never_wraps_code_by_line_length() -> None:
 
     assert len(source.rstrip("\n")) > 88
     assert format_code(source) == source
+
+
+def test_preserves_local_multiline_argument_expansion() -> None:
+    source: str = '''service.process(options={
+    "enabled": True,
+    "timeout": 10,
+})
+'''
+
+    assert format_code(source) == source
+
+
+def test_rejects_mechanical_rewrite_that_changes_ast(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def change_value(source: str) -> str:
+        return "value = 2\n"
+
+    monkeypatch.setattr(formatter, "_format_mechanical_whitespace", change_value)
+
+    with pytest.raises(ValueError, match="mechanical whitespace pass"):
+        format_code("value = 1\n")
+
+
+def test_rejects_custom_rewrite_that_changes_ast(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def change_value(source: str) -> str:
+        return "value = 2\n"
+
+    monkeypatch.setattr(formatter, "apply_custom_transforms", change_value)
+
+    with pytest.raises(ValueError, match="custom transform pass"):
+        format_code("value = 1\n")
 
 
 def test_is_idempotent() -> None:

@@ -120,6 +120,28 @@ def test_allows_structured_single_argument_call() -> None:
     assert _codes(source=source) == []
 
 
+def test_allows_local_structured_argument_expansion() -> None:
+    source = '''def execute() -> object:
+    return process(options={
+        "enabled": True,
+        "timeout": 10,
+    })
+'''
+
+    assert _codes(source=source) == []
+
+
+def test_reports_outer_trailing_comma_for_local_expansion() -> None:
+    source = '''def execute() -> object:
+    return process(options={
+        "enabled": True,
+        "timeout": 10,
+    },)
+'''
+
+    assert _codes(source=source) == ["YNG703"]
+
+
 def test_reports_naming_and_type_annotation_rules() -> None:
     source = "class bad_name:\n    def GetValue(self, value):\n        return value\n"
 

@@ -204,6 +204,18 @@ def _single_simple_argument(node: ast.Call) -> ast.expr | None:
     return keyword.value
 
 
+def _outer_call_is_expanded(node: ast.Call) -> bool:
+    """
+    Return whether top-level call arguments start on lines after the callable.
+    """
+    function_end_line: int = node.func.end_lineno or node.func.lineno
+    argument_lines: tuple[int, ...] = (
+        *(argument.lineno for argument in node.args),
+        *(keyword.value.lineno for keyword in node.keywords),
+    )
+    return any(line > function_end_line for line in argument_lines)
+
+
 def _check_call_formatting(
     source: str,
     tree: ast.Module,
@@ -221,6 +233,7 @@ def _check_call_formatting(
         argument_count: int = len(node.args) + len(node.keywords)
         is_multiline: bool = node.lineno != node.end_lineno
         has_trailing_comma: bool = _call_has_trailing_comma(segment=segment)
+        outer_expanded: bool = _outer_call_is_expanded(node=node)
 
         if not is_multiline:
             if argument_count > 0 and has_trailing_comma:
@@ -229,7 +242,7 @@ def _check_call_formatting(
                         line=node.lineno,
                         column=node.col_offset + 1,
                         code="YNG703",
-                        message="single-line call must not use a trailing comma",
+                        message="compact outer call must not use a trailing comma",
                     )
                 )
             continue
@@ -245,13 +258,23 @@ def _check_call_formatting(
             )
             continue
 
-        if not _generator_only_call(node=node) and not has_trailing_comma:
+        if outer_expanded:
+            if not _generator_only_call(node=node) and not has_trailing_comma:
+                diagnostics.append(
+                    MechanicalIssue(
+                        line=node.end_lineno or node.lineno,
+                        column=node.end_col_offset or node.col_offset + 1,
+                        code="YNG702",
+                        message="expanded outer call must end its final argument with a trailing comma",
+                    )
+                )
+        elif has_trailing_comma:
             diagnostics.append(
                 MechanicalIssue(
                     line=node.end_lineno or node.lineno,
                     column=node.end_col_offset or node.col_offset + 1,
-                    code="YNG702",
-                    message="multi-line call must end its final argument with a trailing comma",
+                    code="YNG703",
+                    message="compact outer call must not use a trailing comma",
                 )
             )
 

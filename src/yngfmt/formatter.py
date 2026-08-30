@@ -7,6 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
+import ast
 
 import autopep8
 
@@ -15,8 +16,44 @@ from yngfmt.transforms import apply_custom_transforms
 
 
 _MECHANICAL_FIXES: Final[tuple[str, ...]] = (
-    "E1",
-    "E2",
+    "E101",
+    "E111",
+    "E112",
+    "E113",
+    "E114",
+    "E115",
+    "E116",
+    "E117",
+    "E121",
+    "E122",
+    "E123",
+    "E124",
+    "E125",
+    "E126",
+    "E127",
+    "E128",
+    "E129",
+    "E131",
+    "E133",
+    "E201",
+    "E202",
+    "E204",
+    "E211",
+    "E221",
+    "E222",
+    "E223",
+    "E224",
+    "E225",
+    "E227",
+    "E228",
+    "E231",
+    "E251",
+    "E252",
+    "E271",
+    "E272",
+    "E273",
+    "E274",
+    "E275",
     "W291",
     "W292",
     "W293",
@@ -34,9 +71,26 @@ class FormatResult:
     source: str
 
 
+def _ast_signature(source: str) -> str:
+    """
+    Return a location-independent syntax-tree signature for semantic safety checks.
+    """
+    tree: ast.Module = ast.parse(source, type_comments=True)
+    return ast.dump(tree, annotate_fields=True, include_attributes=False)
+
+
+def _require_ast_equivalence(before: str, after: str, stage: str) -> None:
+    """
+    Reject a source rewrite when it changes the parsed Python syntax tree.
+    """
+    if _ast_signature(source=before) == _ast_signature(source=after):
+        return
+    raise ValueError(f"yngfmt {stage} changed the Python syntax tree")
+
+
 def _format_mechanical_whitespace(source: str) -> str:
     """
-    Normalize mechanical whitespace without any line-length-based rewriting.
+    Normalize explicitly selected mechanical whitespace without width-based rewriting.
     """
     return autopep8.fix_code(
         source,
@@ -54,11 +108,23 @@ def format_code(
     Format Python source according to the supported guide rules.
     """
     whitespace_formatted: str = _format_mechanical_whitespace(source=source)
+    _require_ast_equivalence(
+        before=source,
+        after=whitespace_formatted,
+        stage="mechanical whitespace pass",
+    )
+
     import_formatted: str = sort_imports(
         source=whitespace_formatted,
         config=import_config,
     )
-    return apply_custom_transforms(source=import_formatted)
+    custom_formatted: str = apply_custom_transforms(source=import_formatted)
+    _require_ast_equivalence(
+        before=import_formatted,
+        after=custom_formatted,
+        stage="custom transform pass",
+    )
+    return custom_formatted
 
 
 def format_path(
