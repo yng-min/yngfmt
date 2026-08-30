@@ -350,27 +350,25 @@ def _records(
         )
         node_end: int = node.end_lineno or node.lineno
         end_line: int = _attached_end(lines=lines, end_line=node_end)
-        records.append(
-            ImportRecord(
-                text="".join(lines[start_line - 1 : end_line]).strip("\n"),
-                root=_root_name(node=node),
-                module=_module_name(node=node),
-                depth=_depth(node=node),
-                kind=_kind(node=node),
-                category=_category(node=node, config=config),
-                segment=_segment_name(
-                    node=node,
-                    config=config,
-                    layer_segments=layer_segments,
-                ),
-                original_index=index,
-                is_pinned=_record_is_pinned(
-                    start_line=start_line,
-                    end_line=end_line,
-                    protected_lines=protected_lines,
-                ),
-            )
-        )
+        records.append(ImportRecord(
+            text="".join(lines[start_line - 1 : end_line]).strip("\n"),
+            root=_root_name(node=node),
+            module=_module_name(node=node),
+            depth=_depth(node=node),
+            kind=_kind(node=node),
+            category=_category(node=node, config=config),
+            segment=_segment_name(
+                node=node,
+                config=config,
+                layer_segments=layer_segments,
+            ),
+            original_index=index,
+            is_pinned=_record_is_pinned(
+                start_line=start_line,
+                end_line=end_line,
+                protected_lines=protected_lines,
+            ),
+        ))
         previous_end = end_line + 1
         final_end = end_line
 
@@ -478,11 +476,9 @@ def check_imports(
 
     nodes: list[ast.Import | ast.ImportFrom] = _top_level_import_nodes(tree=tree)
     line: int = nodes[0].lineno if nodes else 1
-    return [
-        ImportIssue(
-            line=line,
-            column=1,
-            code="YNG400",
-            message="import section does not match project import ordering rules",
-        )
-    ]
+    return [ImportIssue(
+        line=line,
+        column=1,
+        code="YNG400",
+        message="import section does not match project import ordering rules",
+    )]

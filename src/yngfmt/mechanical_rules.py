@@ -16,16 +16,14 @@ _SIMPLE_CALL_ARGUMENT_TYPES: Final[tuple[type[ast.expr], ...]] = (
     ast.JoinedStr,
     ast.Name,
 )
-_IGNORED_CALL_TOKEN_TYPES: Final[frozenset[int]] = frozenset(
-    {
-        tokenize.COMMENT,
-        tokenize.DEDENT,
-        tokenize.ENDMARKER,
-        tokenize.INDENT,
-        tokenize.NEWLINE,
-        tokenize.NL,
-    }
-)
+_IGNORED_CALL_TOKEN_TYPES: Final[frozenset[int]] = frozenset({
+    tokenize.COMMENT,
+    tokenize.DEDENT,
+    tokenize.ENDMARKER,
+    tokenize.INDENT,
+    tokenize.NEWLINE,
+    tokenize.NL,
+})
 _DOCSTRING_CLOSING_LINE_PATTERN: Final[re.Pattern[str]] = re.compile(
     r"(?:\r\n|\n)[ \t]*\Z"
 )
@@ -96,28 +94,24 @@ def _check_docstring_delimiter_layout(
         if parsed is None:
             continue
         prefix, quote = parsed
-        if quote != '"""':
+        if quote != "\"\"\"":
             continue
 
         body: str = token.string[len(prefix) + len(quote) : -len(quote)]
         if not body.startswith(("\n", "\r\n")):
-            diagnostics.append(
-                MechanicalIssue(
-                    line=token.start[0],
-                    column=token.start[1] + 1,
-                    code="YNG107",
-                    message="docstring content must start on the line after opening quotes",
-                )
-            )
+            diagnostics.append(MechanicalIssue(
+                line=token.start[0],
+                column=token.start[1] + 1,
+                code="YNG107",
+                message="docstring content must start on the line after opening quotes",
+            ))
         if _DOCSTRING_CLOSING_LINE_PATTERN.search(body) is None:
-            diagnostics.append(
-                MechanicalIssue(
-                    line=token.end[0],
-                    column=max(1, token.end[1] - 2),
-                    code="YNG108",
-                    message="docstring closing quotes must be on their own line",
-                )
-            )
+            diagnostics.append(MechanicalIssue(
+                line=token.end[0],
+                column=max(1, token.end[1] - 2),
+                code="YNG108",
+                message="docstring closing quotes must be on their own line",
+            ))
     return diagnostics
 
 
@@ -142,14 +136,12 @@ def _check_dictionary_spacing(
         if is_valid:
             continue
 
-        diagnostics.append(
-            MechanicalIssue(
-                line=node.lineno,
-                column=node.col_offset + 1,
-                code="YNG109",
-                message="single-line dictionary literal has non-canonical inner spacing",
-            )
-        )
+        diagnostics.append(MechanicalIssue(
+            line=node.lineno,
+            column=node.col_offset + 1,
+            code="YNG109",
+            message="single-line dictionary literal has non-canonical inner spacing",
+        ))
     return diagnostics
 
 
@@ -237,46 +229,38 @@ def _check_call_formatting(
 
         if not is_multiline:
             if argument_count > 0 and has_trailing_comma:
-                diagnostics.append(
-                    MechanicalIssue(
-                        line=node.lineno,
-                        column=node.col_offset + 1,
-                        code="YNG703",
-                        message="compact outer call must not use a trailing comma",
-                    )
-                )
+                diagnostics.append(MechanicalIssue(
+                    line=node.lineno,
+                    column=node.col_offset + 1,
+                    code="YNG703",
+                    message="compact outer call must not use a trailing comma",
+                ))
             continue
 
         if argument_count == 0:
-            diagnostics.append(
-                MechanicalIssue(
-                    line=node.lineno,
-                    column=node.col_offset + 1,
-                    code="YNG704",
-                    message="zero-argument call must stay on one line",
-                )
-            )
+            diagnostics.append(MechanicalIssue(
+                line=node.lineno,
+                column=node.col_offset + 1,
+                code="YNG704",
+                message="zero-argument call must stay on one line",
+            ))
             continue
 
         if outer_expanded:
             if not _generator_only_call(node=node) and not has_trailing_comma:
-                diagnostics.append(
-                    MechanicalIssue(
-                        line=node.end_lineno or node.lineno,
-                        column=node.end_col_offset or node.col_offset + 1,
-                        code="YNG702",
-                        message="expanded outer call must end its final argument with a trailing comma",
-                    )
-                )
-        elif has_trailing_comma:
-            diagnostics.append(
-                MechanicalIssue(
+                diagnostics.append(MechanicalIssue(
                     line=node.end_lineno or node.lineno,
                     column=node.end_col_offset or node.col_offset + 1,
-                    code="YNG703",
-                    message="compact outer call must not use a trailing comma",
-                )
-            )
+                    code="YNG702",
+                    message="expanded outer call must end its final argument with a trailing comma",
+                ))
+        elif has_trailing_comma:
+            diagnostics.append(MechanicalIssue(
+                line=node.end_lineno or node.lineno,
+                column=node.end_col_offset or node.col_offset + 1,
+                code="YNG703",
+                message="compact outer call must not use a trailing comma",
+            ))
 
         argument: ast.expr | None = _single_simple_argument(node=node)
         if argument is None:
@@ -288,14 +272,12 @@ def _check_call_formatting(
         if _call_has_comment(segment=segment):
             continue
 
-        diagnostics.append(
-            MechanicalIssue(
-                line=node.lineno,
-                column=node.col_offset + 1,
-                code="YNG701",
-                message="simple single-argument call must stay on one line",
-            )
-        )
+        diagnostics.append(MechanicalIssue(
+            line=node.lineno,
+            column=node.col_offset + 1,
+            code="YNG701",
+            message="simple single-argument call must stay on one line",
+        ))
     return diagnostics
 
 
