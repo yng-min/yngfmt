@@ -17,6 +17,13 @@ _SIMPLE_ARGUMENT_TYPES: Final[tuple[type[ast.expr], ...]] = (
     ast.Name,
     ast.UnaryOp,
 )
+_NESTED_EXPRESSION_PARENTS: Final[tuple[type[ast.AST], ...]] = (
+    ast.Call,
+    ast.Dict,
+    ast.List,
+    ast.Set,
+    ast.Tuple,
+)
 
 
 def _contains_comment(segment: str) -> bool:
@@ -95,12 +102,23 @@ def _replacement(source: str, node: ast.Call) -> str | None:
     return f"{function_text}({', '.join(arguments)})"
 
 
+def _parent_map(tree: ast.Module) -> dict[ast.AST, ast.AST]:
+    return {
+        child: parent
+        for parent in ast.walk(tree)
+        for child in ast.iter_child_nodes(parent)
+    }
+
+
 def _compact_once(source: str) -> str | None:
     tree: ast.Module = ast.parse(source, type_comments=True)
+    parents: dict[ast.AST, ast.AST] = _parent_map(tree=tree)
     candidates: list[tuple[int, int, str]] = []
 
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
+            continue
+        if isinstance(parents.get(node), _NESTED_EXPRESSION_PARENTS):
             continue
 
         replacement: str | None = _replacement(source=source, node=node)
@@ -124,7 +142,7 @@ def _compact_once(source: str) -> str | None:
 
 def compact_multi_simple_calls(source: str) -> str:
     """
-    Keep multiline calls compact when every argument is structurally simple.
+    Keep top-level multiline calls compact when every argument is structurally simple.
     """
     current_source: str = source
     while True:
