@@ -54,7 +54,6 @@ def test_reports_docstring_delimiter_layout() -> None:
     source = '''"""Module description.
 """
 
-
 def execute() -> None:
     """
     Execute."""
@@ -113,6 +112,7 @@ def test_allows_structured_single_argument_call() -> None:
     return process(
         create_value(
             enabled=True,
+            timeout=10,
         ),
     )
 '''
