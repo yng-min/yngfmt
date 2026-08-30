@@ -177,43 +177,16 @@ def _depth(node: ast.Import | ast.ImportFrom) -> int:
     return len(_module_parts(node=node))
 
 
-def _candidate_segment(node: ast.Import | ast.ImportFrom, config: ImportConfig) -> str:
+def _segment_name(node: ast.Import | ast.ImportFrom, config: ImportConfig) -> str:
+    """
+    Return the first package segment after the first-party root package.
+    """
     parts: tuple[str, ...] = _module_parts(node=node)
     if isinstance(node, ast.ImportFrom) and node.level:
         return parts[0] if parts else ""
     if not parts or parts[0] not in config.first_party:
         return ""
     return parts[1] if len(parts) > 1 else ""
-
-
-def _layer_segments(
-    nodes: Sequence[ast.Import | ast.ImportFrom],
-    config: ImportConfig,
-) -> frozenset[str]:
-    """
-    Detect actual nested first-party package segments without splitting flat modules.
-    """
-    segments: set[str] = {config.language_segment, config.config_segment}
-    for node in nodes:
-        if _category(node=node, config=config) != ImportCategory.FIRST_PARTY:
-            continue
-
-        parts: tuple[str, ...] = _module_parts(node=node)
-        required_depth: int = 2 if isinstance(node, ast.ImportFrom) and node.level else 3
-        if len(parts) >= required_depth:
-            segment: str = _candidate_segment(node=node, config=config)
-            if segment:
-                segments.add(segment)
-    return frozenset(segments)
-
-
-def _segment_name(
-    node: ast.Import | ast.ImportFrom,
-    config: ImportConfig,
-    layer_segments: frozenset[str],
-) -> str:
-    segment: str = _candidate_segment(node=node, config=config)
-    return segment if segment in layer_segments else ""
 
 
 def _segment_order(segment: str, config: ImportConfig) -> tuple[int, str]:
@@ -340,7 +313,6 @@ def _records(
     records: list[ImportRecord] = []
     previous_end: int = 1
     final_end: int = nodes[-1].end_lineno or nodes[-1].lineno
-    layer_segments: frozenset[str] = _layer_segments(nodes=nodes, config=config)
 
     for index, node in enumerate(nodes):
         start_line: int = _attached_start(
@@ -357,11 +329,7 @@ def _records(
             depth=_depth(node=node),
             kind=_kind(node=node),
             category=_category(node=node, config=config),
-            segment=_segment_name(
-                node=node,
-                config=config,
-                layer_segments=layer_segments,
-            ),
+            segment=_segment_name(node=node, config=config),
             original_index=index,
             is_pinned=_record_is_pinned(
                 start_line=start_line,
