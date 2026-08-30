@@ -6,12 +6,22 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Final
 
-from black.report import NothingChanged
-import black
+import autopep8
 
 from yngfmt.imports import ImportConfig, sort_imports
 from yngfmt.transforms import apply_custom_transforms
+
+
+_MECHANICAL_FIXES: Final[tuple[str, ...]] = (
+    "E1",
+    "E2",
+    "W291",
+    "W292",
+    "W293",
+    "W391",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,27 +34,28 @@ class FormatResult:
     source: str
 
 
+def _format_mechanical_whitespace(source: str) -> str:
+    """
+    Normalize mechanical whitespace without any line-length-based rewriting.
+    """
+    return autopep8.fix_code(
+        source,
+        options={ "select": list(_MECHANICAL_FIXES) },
+        apply_config=False,
+    )
+
+
 def format_code(
     source: str,
     *,
-    line_length: int = 88,
     import_config: ImportConfig = ImportConfig(),
 ) -> str:
     """
     Format Python source according to the supported guide rules.
     """
-    mode: black.Mode = black.Mode(line_length=line_length, string_normalization=True)
-    try:
-        black_formatted: str = black.format_file_contents(
-            source,
-            fast=False,
-            mode=mode,
-        )
-    except NothingChanged:
-        black_formatted = source
-
+    whitespace_formatted: str = _format_mechanical_whitespace(source=source)
     import_formatted: str = sort_imports(
-        source=black_formatted,
+        source=whitespace_formatted,
         config=import_config,
     )
     return apply_custom_transforms(source=import_formatted)
@@ -54,7 +65,6 @@ def format_path(
     path: Path,
     *,
     check: bool = False,
-    line_length: int = 88,
     import_config: ImportConfig = ImportConfig(),
 ) -> FormatResult:
     """
@@ -63,7 +73,6 @@ def format_path(
     source: str = path.read_text(encoding="utf-8")
     formatted_source: str = format_code(
         source=source,
-        line_length=line_length,
         import_config=import_config,
     )
     changed: bool = source != formatted_source
