@@ -37,11 +37,7 @@ def main() -> int:
 
     diagnostics: list[Diagnostic] = []
     for path in files:
-        diagnostics.extend(lint_path(
-            path=path,
-            import_config=import_config,
-            result_config=result_config,
-        ))
+        diagnostics.extend(lint_path(path=path, import_config=import_config, result_config=result_config))
 
     for diagnostic in diagnostics:
         print(diagnostic.render())

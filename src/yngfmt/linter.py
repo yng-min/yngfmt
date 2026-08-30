@@ -177,35 +177,19 @@ class StyleGuideVisitor(ast.NodeVisitor):
 
     def _check_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         if not _SNAKE_CASE_PATTERN.fullmatch(node.name) and not self._is_framework_callback(name=node.name):
-            self.add(
-                node=node,
-                code="YNG202",
-                message="function and method names must use snake_case",
-            )
+            self.add(node=node, code="YNG202", message="function and method names must use snake_case")
 
         arguments: list[ast.arg] = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
         for argument in arguments:
             if argument.arg in {"self", "cls"}:
                 continue
             if argument.annotation is None:
-                self.add(
-                    node=argument,
-                    code="YNG301",
-                    message="parameter type annotation is missing",
-                )
+                self.add(node=argument, code="YNG301", message="parameter type annotation is missing")
 
         if node.args.vararg is not None and node.args.vararg.annotation is None:
-            self.add(
-                node=node.args.vararg,
-                code="YNG301",
-                message="*args type annotation is missing",
-            )
+            self.add(node=node.args.vararg, code="YNG301", message="*args type annotation is missing")
         if node.args.kwarg is not None and node.args.kwarg.annotation is None:
-            self.add(
-                node=node.args.kwarg,
-                code="YNG301",
-                message="**kwargs type annotation is missing",
-            )
+            self.add(node=node.args.kwarg, code="YNG301", message="**kwargs type annotation is missing")
         if node.returns is None:
             self.add(node=node, code="YNG302", message="return type annotation is missing")
 
@@ -307,13 +291,7 @@ def _check_tokens(source: str, path: Path, tree: ast.AST) -> list[Diagnostic]:
 
     for line_number, line in enumerate(source.splitlines(), start=1):
         if "\t" in line:
-            diagnostics.append(Diagnostic(
-                path=path,
-                line=line_number,
-                column=line.index("\t") + 1,
-                code="YNG001",
-                message="tabs are not allowed",
-            ))
+            diagnostics.append(Diagnostic(path=path, line=line_number, column=line.index("\t") + 1, code="YNG001", message="tabs are not allowed"))
     return diagnostics
 
 
@@ -332,13 +310,7 @@ def _check_subscript_quotes(source: str, path: Path, tree: ast.AST) -> list[Diag
             continue
         segment: str = lines[slice_node.lineno - 1][slice_node.col_offset : slice_node.end_col_offset]
         if not segment.startswith("'"):
-            diagnostics.append(Diagnostic(
-                path=path,
-                line=slice_node.lineno,
-                column=slice_node.col_offset + 1,
-                code="YNG103",
-                message="dictionary key access must use single quotes",
-            ))
+            diagnostics.append(Diagnostic(path=path, line=slice_node.lineno, column=slice_node.col_offset + 1, code="YNG103", message="dictionary key access must use single quotes"))
     return diagnostics
 
 
@@ -357,13 +329,7 @@ def _check_docstring_layout(tree: ast.Module, path: Path) -> list[Diagnostic]:
     if tree.body and _is_docstring_statement(tree.body[0]) and len(tree.body) > 1:
         docstring: ast.stmt = tree.body[0]
         if _blank_lines_between(docstring, tree.body[1]) != 1:
-            diagnostics.append(Diagnostic(
-                path=path,
-                line=docstring.lineno,
-                column=docstring.col_offset + 1,
-                code="YNG104",
-                message="module docstring must be followed by exactly one blank line",
-            ))
+            diagnostics.append(Diagnostic(path=path, line=docstring.lineno, column=docstring.col_offset + 1, code="YNG104", message="module docstring must be followed by exactly one blank line"))
 
     for node in ast.walk(tree):
         if not isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -379,13 +345,7 @@ def _check_docstring_layout(tree: ast.Module, path: Path) -> list[Diagnostic]:
 
         code: str = "YNG105" if isinstance(node, ast.ClassDef) else "YNG106"
         subject: str = "class" if isinstance(node, ast.ClassDef) else "function"
-        diagnostics.append(Diagnostic(
-            path=path,
-            line=next_statement.lineno,
-            column=next_statement.col_offset + 1,
-            code=code,
-            message=f"{subject} docstring must not be followed by a blank line",
-        ))
+        diagnostics.append(Diagnostic(path=path, line=next_statement.lineno, column=next_statement.col_offset + 1, code=code, message=f"{subject} docstring must not be followed by a blank line"))
     return diagnostics
 
 
@@ -442,13 +402,7 @@ def _check_definition_spacing(
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.body:
             header_end: int = _definition_header_end_line(source=source, node=node)
             if node.body[0].lineno - header_end - 1 > 0:
-                diagnostics.append(Diagnostic(
-                    path=path,
-                    line=node.body[0].lineno,
-                    column=node.body[0].col_offset + 1,
-                    code="YNG403",
-                    message="function body must start immediately after the declaration",
-                ))
+                diagnostics.append(Diagnostic(path=path, line=node.body[0].lineno, column=node.body[0].col_offset + 1, code="YNG403", message="function body must start immediately after the declaration"))
 
     for class_node in (node for node in ast.walk(tree) if isinstance(node, ast.ClassDef)):
         body: list[ast.stmt] = class_node.body
@@ -496,13 +450,7 @@ def _check_wrapper_and_return_spacing(tree: ast.Module, path: Path) -> list[Diag
             and isinstance(body[1], ast.Return)
             and _blank_lines_between(body[0], body[1]) > 0
         ):
-            diagnostics.append(Diagnostic(
-                path=path,
-                line=body[1].lineno,
-                column=body[1].col_offset + 1,
-                code="YNG501",
-                message="short wrapper preparation and delegation must remain adjacent",
-            ))
+            diagnostics.append(Diagnostic(path=path, line=body[1].lineno, column=body[1].col_offset + 1, code="YNG501", message="short wrapper preparation and delegation must remain adjacent"))
 
         for previous, current in zip(body, body[1:]):
             if not isinstance(current, ast.Return) or _blank_lines_between(previous, current) == 0:
@@ -516,13 +464,7 @@ def _check_wrapper_and_return_spacing(tree: ast.Module, path: Path) -> list[Diag
             )
             target_name: str | None = _target_name(target) if target is not None else None
             if target_name is not None and isinstance(current.value, ast.Name) and current.value.id == target_name:
-                diagnostics.append(Diagnostic(
-                    path=path,
-                    line=current.lineno,
-                    column=current.col_offset + 1,
-                    code="YNG502",
-                    message="return must remain adjacent to the statement producing its value",
-                ))
+                diagnostics.append(Diagnostic(path=path, line=current.lineno, column=current.col_offset + 1, code="YNG502", message="return must remain adjacent to the statement producing its value"))
     return diagnostics
 
 
@@ -594,23 +536,11 @@ def _validate_result_keys(
 ) -> list[Diagnostic]:
     aliases: list[str] = sorted(keys & set(config.aliases))
     if aliases:
-        return [Diagnostic(
-            path=path,
-            line=node.lineno,
-            column=node.col_offset + 1,
-            code="YNG602",
-            message=f"result dictionary uses non-standard field names: {', '.join(aliases)}",
-        )]
+        return [Diagnostic(path=path, line=node.lineno, column=node.col_offset + 1, code="YNG602", message=f"result dictionary uses non-standard field names: {', '.join(aliases)}")]
 
     missing: list[str] = sorted(set(config.required_fields) - keys)
     if missing:
-        return [Diagnostic(
-            path=path,
-            line=node.lineno,
-            column=node.col_offset + 1,
-            code="YNG601",
-            message=f"result object is missing required fields: {', '.join(missing)}",
-        )]
+        return [Diagnostic(path=path, line=node.lineno, column=node.col_offset + 1, code="YNG601", message=f"result object is missing required fields: {', '.join(missing)}")]
     return []
 
 
@@ -661,25 +591,14 @@ def _check_result_objects(
             keys: set[str] | None = _dictionary_string_keys(dictionary)
             if keys is None or not _result_candidate(keys=keys, config=config, forced=forced):
                 continue
-            diagnostics.extend(_validate_result_keys(
-                keys=keys,
-                node=node,
-                path=path,
-                config=config,
-            ))
+            diagnostics.extend(_validate_result_keys(keys=keys, node=node, path=path, config=config))
             returns.append((node, keys))
 
         if len({frozenset(keys) for _, keys in returns}) > 1:
             baseline: set[str] = returns[0][1]
             for node, keys in returns[1:]:
                 if keys != baseline:
-                    diagnostics.append(Diagnostic(
-                        path=path,
-                        line=node.lineno,
-                        column=node.col_offset + 1,
-                        code="YNG603",
-                        message="result return branches must use the same field set",
-                    ))
+                    diagnostics.append(Diagnostic(path=path, line=node.lineno, column=node.col_offset + 1, code="YNG603", message="result return branches must use the same field set"))
     return diagnostics
 
 
@@ -704,13 +623,7 @@ def lint_code(
         for issue in check_imports(source=source, config=import_config)
     ]
     mechanical_diagnostics: list[Diagnostic] = [
-        Diagnostic(
-            path=path,
-            line=issue.line,
-            column=issue.column,
-            code=issue.code,
-            message=issue.message,
-        )
+        Diagnostic(path=path, line=issue.line, column=issue.column, code=issue.code, message=issue.message)
         for issue in check_mechanical_rules(source=source, tree=tree)
     ]
     diagnostics: list[Diagnostic] = [

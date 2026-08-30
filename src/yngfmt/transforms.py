@@ -168,11 +168,7 @@ class YngminStyleTransformer(cst.CSTTransformer):
         """
         current: cst.CSTNode = node
         while True:
-            parent: cst.CSTNode | None = self.get_metadata(
-                ParentNodeProvider,
-                current,
-                default=None,
-            )
+            parent: cst.CSTNode | None = self.get_metadata(ParentNodeProvider, current, default=None)
             if parent is None:
                 return False
             if isinstance(parent, cst.FormattedString):

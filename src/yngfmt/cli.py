@@ -28,21 +28,10 @@ def _python_files(paths: Iterable[Path]) -> list[Path]:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser: argparse.ArgumentParser = argparse.ArgumentParser(
-        prog="yngfmt",
-        description="Format Python code using yngmin's Python Style Guide.",
-    )
+    parser: argparse.ArgumentParser = argparse.ArgumentParser(prog="yngfmt", description="Format Python code using yngmin's Python Style Guide.")
     parser.add_argument("paths", nargs="+", type=Path)
-    parser.add_argument(
-        "--check",
-        action="store_true",
-        help="Do not write files and return a non-zero status when changes are needed.",
-    )
-    parser.add_argument(
-        "--pyproject",
-        type=Path,
-        help="Explicit pyproject.toml path for project import settings.",
-    )
+    parser.add_argument("--check", action="store_true", help="Do not write files and return a non-zero status when changes are needed.")
+    parser.add_argument("--pyproject", type=Path, help="Explicit pyproject.toml path for project import settings.")
     return parser
 
 
@@ -58,11 +47,7 @@ def main() -> int:
 
     changed_files: list[Path] = []
     for path in files:
-        result = format_path(
-            path=path,
-            check=arguments.check,
-            import_config=import_config,
-        )
+        result = format_path(path=path, check=arguments.check, import_config=import_config)
         if result.changed:
             changed_files.append(path)
             action: str = "would reformat" if arguments.check else "reformatted"

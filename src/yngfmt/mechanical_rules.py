@@ -68,10 +68,7 @@ def _docstring_positions(tree: ast.Module) -> set[tuple[int, int]]:
 
 
 def _string_prefix_and_quote(token_value: str) -> tuple[str, str] | None:
-    match: re.Match[str] | None = re.match(
-        r"(?i)^([rubf]*)(\"\"\"|'{3}|\"|')",
-        token_value,
-    )
+    match: re.Match[str] | None = re.match(r"(?i)^([rubf]*)(\"\"\"|'{3}|\"|')", token_value)
     if match is None:
         return None
     return match.group(1), match.group(2)
@@ -134,12 +131,7 @@ def _check_dictionary_spacing(
         if is_valid:
             continue
 
-        diagnostics.append(MechanicalIssue(
-            line=node.lineno,
-            column=node.col_offset + 1,
-            code="YNG109",
-            message="single-line dictionary literal has non-canonical inner spacing",
-        ))
+        diagnostics.append(MechanicalIssue(line=node.lineno, column=node.col_offset + 1, code="YNG109", message="single-line dictionary literal has non-canonical inner spacing"))
     return diagnostics
 
 
@@ -236,22 +228,12 @@ def _check_call_formatting(
 
         if not is_multiline:
             if argument_count > 0 and has_trailing_comma:
-                diagnostics.append(MechanicalIssue(
-                    line=node.lineno,
-                    column=node.col_offset + 1,
-                    code="YNG703",
-                    message="compact outer call must not use a trailing comma",
-                ))
+                diagnostics.append(MechanicalIssue(line=node.lineno, column=node.col_offset + 1, code="YNG703", message="compact outer call must not use a trailing comma"))
             continue
 
         if argument_count == 0:
             if _zero_argument_call_is_expanded(node=node):
-                diagnostics.append(MechanicalIssue(
-                    line=node.lineno,
-                    column=node.col_offset + 1,
-                    code="YNG704",
-                    message="zero-argument call must stay on one line",
-                ))
+                diagnostics.append(MechanicalIssue(line=node.lineno, column=node.col_offset + 1, code="YNG704", message="zero-argument call must stay on one line"))
             continue
 
         if outer_expanded:
@@ -280,12 +262,7 @@ def _check_call_formatting(
         if _call_has_comment(segment=segment):
             continue
 
-        diagnostics.append(MechanicalIssue(
-            line=node.lineno,
-            column=node.col_offset + 1,
-            code="YNG701",
-            message="simple single-argument call must stay on one line",
-        ))
+        diagnostics.append(MechanicalIssue(line=node.lineno, column=node.col_offset + 1, code="YNG701", message="simple single-argument call must stay on one line"))
     return diagnostics
 
 

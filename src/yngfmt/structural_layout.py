@@ -209,11 +209,7 @@ def _collapse_once(source: str) -> str | None:
 
         start_offset, end_offset = bounds
         segment: str = source[start_offset:end_offset]
-        collapsed: str | None = _collapse_segment(
-            segment=segment,
-            opener=opener,
-            closer=closer,
-        )
+        collapsed: str | None = _collapse_segment(segment=segment, opener=opener, closer=closer)
         if collapsed is None or collapsed == segment:
             continue
         candidates.append((start_offset, end_offset, collapsed))

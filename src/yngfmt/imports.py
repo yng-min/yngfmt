@@ -125,16 +125,8 @@ def load_import_config(pyproject_path: Path | None) -> ImportConfig:
     settings: dict[str, object] = _mapping(value=yngfmt_settings.get("imports", {}))
     return ImportConfig(
         first_party=_string_tuple(value=settings.get("first-party", ())),
-        language_segment=_string_setting(
-            settings=settings,
-            key="language-segment",
-            default="language",
-        ),
-        config_segment=_string_setting(
-            settings=settings,
-            key="config-segment",
-            default="config",
-        ),
+        language_segment=_string_setting(settings=settings, key="language-segment", default="language"),
+        config_segment=_string_setting(settings=settings, key="config-segment", default="config"),
     )
 
 
@@ -198,10 +190,7 @@ def _segment_order(segment: str, config: ImportConfig) -> tuple[int, str]:
 
 
 def _sort_key(record: ImportRecord, config: ImportConfig) -> tuple[object, ...]:
-    segment_order: tuple[int, str] = _segment_order(
-        segment=record.segment,
-        config=config,
-    )
+    segment_order: tuple[int, str] = _segment_order(segment=record.segment, config=config)
     return (
         record.category,
         segment_order if record.category == ImportCategory.FIRST_PARTY else (0, ""),
@@ -315,11 +304,7 @@ def _records(
     final_end: int = nodes[-1].end_lineno or nodes[-1].lineno
 
     for index, node in enumerate(nodes):
-        start_line: int = _attached_start(
-            lines=lines,
-            start_line=node.lineno,
-            lower_bound=previous_end,
-        )
+        start_line: int = _attached_start(lines=lines, start_line=node.lineno, lower_bound=previous_end)
         node_end: int = node.end_lineno or node.lineno
         end_line: int = _attached_end(lines=lines, end_line=node_end)
         records.append(ImportRecord(
@@ -331,20 +316,12 @@ def _records(
             category=_category(node=node, config=config),
             segment=_segment_name(node=node, config=config),
             original_index=index,
-            is_pinned=_record_is_pinned(
-                start_line=start_line,
-                end_line=end_line,
-                protected_lines=protected_lines,
-            ),
+            is_pinned=_record_is_pinned(start_line=start_line, end_line=end_line, protected_lines=protected_lines),
         ))
         previous_end = end_line + 1
         final_end = end_line
 
-    first_line: int = _attached_start(
-        lines=lines,
-        start_line=nodes[0].lineno,
-        lower_bound=1,
-    )
+    first_line: int = _attached_start(lines=lines, start_line=nodes[0].lineno, lower_bound=1)
     return records, first_line, final_end
 
 
@@ -413,10 +390,7 @@ def sort_imports(source: str, config: ImportConfig = ImportConfig()) -> str:
         config=config,
         protected_lines=_protected_lines(source=source),
     )
-    sorted_records: list[ImportRecord] = _sort_with_pinned_records(
-        records=records,
-        config=config,
-    )
+    sorted_records: list[ImportRecord] = _sort_with_pinned_records(records=records, config=config)
     rendered: str = _render(records=sorted_records, config=config)
 
     lines: list[str] = source.splitlines(keepends=True)
@@ -444,9 +418,4 @@ def check_imports(
 
     nodes: list[ast.Import | ast.ImportFrom] = _top_level_import_nodes(tree=tree)
     line: int = nodes[0].lineno if nodes else 1
-    return [ImportIssue(
-        line=line,
-        column=1,
-        code="YNG400",
-        message="import section does not match project import ordering rules",
-    )]
+    return [ImportIssue(line=line, column=1, code="YNG400", message="import section does not match project import ordering rules")]

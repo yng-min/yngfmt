@@ -130,22 +130,11 @@ def format_code(
     Format Python source according to the supported guide rules.
     """
     whitespace_formatted: str = _format_mechanical_whitespace(source=source)
-    _require_ast_equivalence(
-        before=source,
-        after=whitespace_formatted,
-        stage="mechanical whitespace pass",
-    )
+    _require_ast_equivalence(before=source, after=whitespace_formatted, stage="mechanical whitespace pass")
 
-    import_formatted: str = sort_imports(
-        source=whitespace_formatted,
-        config=import_config,
-    )
+    import_formatted: str = sort_imports(source=whitespace_formatted, config=import_config)
     custom_formatted: str = apply_custom_transforms(source=import_formatted)
-    _require_ast_equivalence(
-        before=import_formatted,
-        after=custom_formatted,
-        stage="custom transform pass",
-    )
+    _require_ast_equivalence(before=import_formatted, after=custom_formatted, stage="custom transform pass")
     return custom_formatted
 
 
@@ -159,10 +148,7 @@ def format_path(
     Format one Python file and optionally write the result.
     """
     source: str = path.read_text(encoding="utf-8")
-    formatted_source: str = format_code(
-        source=source,
-        import_config=import_config,
-    )
+    formatted_source: str = format_code(source=source, import_config=import_config)
     changed: bool = source != formatted_source
 
     if changed and not check:
