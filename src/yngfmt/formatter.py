@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 import ast
+import inspect
 
 import autopep8
 
@@ -72,11 +73,29 @@ class FormatResult:
     source: str
 
 
+def _normalize_docstring_values(tree: ast.Module) -> None:
+    """
+    Normalize docstring constants so delimiter-only layout changes remain equivalent.
+    """
+    for node in ast.walk(tree):
+        body = getattr(node, "body", None)
+        if not isinstance(body, list) or not body:
+            continue
+
+        statement = body[0]
+        if not isinstance(statement, ast.Expr) or not isinstance(statement.value, ast.Constant):
+            continue
+        if not isinstance(statement.value.value, str):
+            continue
+        statement.value.value = inspect.cleandoc(statement.value.value)
+
+
 def _ast_signature(source: str) -> str:
     """
     Return a location-independent syntax-tree signature for semantic safety checks.
     """
     tree: ast.Module = ast.parse(source, type_comments=True)
+    _normalize_docstring_values(tree=tree)
     for type_ignore in tree.type_ignores:
         type_ignore.lineno = 0
     return ast.dump(tree, annotate_fields=True, include_attributes=False)
