@@ -526,7 +526,7 @@ def _result_candidate(
 
 def _validate_result_keys(
     keys: set[str],
-    node: ast.AST,
+    node: ast.stmt,
     path: Path,
     config: ResultConfig,
 ) -> list[Diagnostic]:
