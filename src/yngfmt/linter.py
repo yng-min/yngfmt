@@ -346,20 +346,27 @@ def _check_definition_spacing(
 ) -> list[Diagnostic]:
     diagnostics: list[Diagnostic] = []
     definitions = (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+    has_seen_definition: bool = False
 
-    for previous, current in zip(tree.body, tree.body[1:]):
-        if isinstance(current, definitions):
-            previous_end = previous.end_lineno or previous.lineno
-            if _first_code_line(current) - previous_end - 1 != 2:
-                diagnostics.append(
-                    Diagnostic(
-                        path=path,
-                        line=_first_code_line(current),
-                        column=1,
-                        code="YNG401",
-                        message="top-level definition must be preceded by two blank lines",
-                    )
+    for index, current in enumerate(tree.body):
+        if not isinstance(current, definitions):
+            continue
+        if not has_seen_definition:
+            has_seen_definition = True
+            continue
+
+        previous: ast.stmt = tree.body[index - 1]
+        previous_end = previous.end_lineno or previous.lineno
+        if _first_code_line(current) - previous_end - 1 != 2:
+            diagnostics.append(
+                Diagnostic(
+                    path=path,
+                    line=_first_code_line(current),
+                    column=1,
+                    code="YNG401",
+                    message="top-level definition must be preceded by two blank lines",
                 )
+            )
 
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.body:
