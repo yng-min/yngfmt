@@ -12,6 +12,8 @@ import libcst as cst
 
 from yngfmt.docstrings import compact_definition_docstring_spacing, normalize_docstring_delimiters
 
+from yngfmt.multi_simple_calls import compact_multi_simple_calls
+
 from yngfmt.structural_layout import collapse_redundant_outer_expansions, compact_simple_calls, compact_thin_function_spacing
 
 
@@ -260,5 +262,6 @@ def apply_custom_transforms(source: str) -> str:
     docstrings_normalized: str = normalize_docstring_delimiters(source=transformed_module.code)
     docstring_spacing_compact: str = compact_definition_docstring_spacing(source=docstrings_normalized)
     simple_calls_compact: str = compact_simple_calls(source=docstring_spacing_compact)
-    structurally_compact: str = collapse_redundant_outer_expansions(source=simple_calls_compact)
+    multi_simple_calls_compact: str = compact_multi_simple_calls(source=simple_calls_compact)
+    structurally_compact: str = collapse_redundant_outer_expansions(source=multi_simple_calls_compact)
     return compact_thin_function_spacing(source=structurally_compact)
