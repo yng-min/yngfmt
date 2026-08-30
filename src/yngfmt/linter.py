@@ -248,7 +248,7 @@ def _check_tokens(source: str, path: Path, tree: ast.AST) -> list[Diagnostic]:
         _, quote = parsed
         position: tuple[int, int] = token.start
         is_docstring: bool = position in docstrings
-        if is_docstring and quote != '"""':
+        if is_docstring and quote != "\"\"\"":
             diagnostics.append(Diagnostic(
                 path=path,
                 line=token.start[0],
