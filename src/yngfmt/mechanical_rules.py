@@ -206,6 +206,15 @@ def _outer_call_is_expanded(node: ast.Call) -> bool:
     return any(line > function_end_line for line in argument_lines)
 
 
+def _zero_argument_call_is_expanded(node: ast.Call) -> bool:
+    """
+    Return whether the call's own empty parentheses span multiple lines.
+    """
+    function_end_line: int = node.func.end_lineno or node.func.lineno
+    call_end_line: int = node.end_lineno or node.lineno
+    return call_end_line > function_end_line
+
+
 def _check_call_formatting(
     source: str,
     tree: ast.Module,
@@ -236,12 +245,13 @@ def _check_call_formatting(
             continue
 
         if argument_count == 0:
-            diagnostics.append(MechanicalIssue(
-                line=node.lineno,
-                column=node.col_offset + 1,
-                code="YNG704",
-                message="zero-argument call must stay on one line",
-            ))
+            if _zero_argument_call_is_expanded(node=node):
+                diagnostics.append(MechanicalIssue(
+                    line=node.lineno,
+                    column=node.col_offset + 1,
+                    code="YNG704",
+                    message="zero-argument call must stay on one line",
+                ))
             continue
 
         if outer_expanded:
