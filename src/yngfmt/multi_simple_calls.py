@@ -258,7 +258,11 @@ def _homogeneous_runs(tree: ast.Module) -> list[list[ast.Call]]:
 
         for statement in block:
             call: ast.Call | None = _call_statement(statement=statement)
-            key: tuple[str, str] | None = _call_family(node=call) if call is not None else None
+            if call is None:
+                flush()
+                continue
+
+            key: tuple[str, str] | None = _call_family(node=call)
             if key is None:
                 flush()
                 continue
