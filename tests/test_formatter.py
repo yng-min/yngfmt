@@ -51,6 +51,12 @@ def test_preserves_bytes_and_prefixed_strings() -> None:
     assert format_code(source) == 'payload = b"abc"\npattern = r"\\d+"\n'
 
 
+def test_preserves_f_string_expression_quotes() -> None:
+    source: str = 'message = f"fields: {\', \'.join(fields)}"\n'
+
+    assert format_code(source) == source
+
+
 def test_preserves_triple_quoted_docstring() -> None:
     source: str = dedent(
         '''
@@ -140,6 +146,17 @@ def test_collapses_redundant_single_item_list_expansion() -> None:
         code="YNG601",
     )]
 '''
+
+
+def test_preserves_generator_expression_call_layout() -> None:
+    source: str = '''values = tuple(
+    item
+    for item in items
+    if item.enabled
+)
+'''
+
+    assert format_code(source) == source
 
 
 def test_keeps_outer_expansion_when_comment_would_move() -> None:
