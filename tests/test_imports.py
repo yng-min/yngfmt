@@ -42,22 +42,24 @@ def test_sorts_first_party_segments() -> None:
     )
 
 
-def test_keeps_flat_first_party_modules_in_one_group() -> None:
+def test_groups_each_first_party_segment_even_for_direct_modules() -> None:
     config = ImportConfig(first_party=("yngfmt",))
     source = (
-        "from yngfmt.mechanical_rules import check_mechanical_rules\n"
-        "from yngfmt.imports import ImportConfig, check_imports\n"
+        "from yngfmt.transforms import apply_custom_transforms\n"
+        "from yngfmt.imports import ImportConfig, sort_imports\n"
         "from yngfmt.formatter import format_code\n"
     )
 
     assert sort_imports(source=source, config=config) == (
         "from yngfmt.formatter import format_code\n"
-        "from yngfmt.imports import ImportConfig, check_imports\n"
-        "from yngfmt.mechanical_rules import check_mechanical_rules\n"
+        "\n"
+        "from yngfmt.imports import ImportConfig, sort_imports\n"
+        "\n"
+        "from yngfmt.transforms import apply_custom_transforms\n"
     )
 
 
-def test_groups_direct_module_with_detected_layer_segment() -> None:
+def test_groups_direct_module_with_nested_segment_imports() -> None:
     source = (
         "from project.domain.article import Article\n"
         "from project.domain import DomainService\n"
