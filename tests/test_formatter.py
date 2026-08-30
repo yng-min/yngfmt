@@ -100,6 +100,34 @@ def test_preserves_local_multiline_argument_expansion() -> None:
     assert format_code(source) == source
 
 
+def test_compacts_simple_multiline_call_chain() -> None:
+    source: str = '''for line in (session_directory / "blocks.jsonl").read_text(
+    encoding="utf-8",
+).splitlines():
+    process(line)
+'''
+    assert format_code(source) == '''for line in (session_directory / "blocks.jsonl").read_text(encoding="utf-8").splitlines():
+    process(line)
+'''
+
+
+def test_compacts_broken_attribute_call_chain() -> None:
+    source: str = '''blocks = [
+    line
+    for line in (session_directory / "blocks.jsonl")
+    .read_text(encoding="utf-8")
+    .splitlines()
+    if line.strip()
+]
+'''
+    assert format_code(source) == '''blocks = [
+    line
+    for line in (session_directory / "blocks.jsonl").read_text(encoding="utf-8").splitlines()
+    if line.strip()
+]
+'''
+
+
 def test_collapses_redundant_outer_call_expansion() -> None:
     source: str = '''diagnostics.extend(
     _validate_result_keys(
@@ -166,6 +194,18 @@ def test_compacts_thin_straight_line_function_body() -> None:
     assert format_code(source) == '''def check() -> None:
     value = build()
     assert value is not None
+'''
+
+
+def test_preserves_type_ignore_when_compaction_moves_its_line() -> None:
+    source: str = '''def execute() -> object:
+    value = build()
+
+    return value  # type: ignore[return-value]
+'''
+    assert format_code(source) == '''def execute() -> object:
+    value = build()
+    return value # type: ignore[return-value]
 '''
 
 
