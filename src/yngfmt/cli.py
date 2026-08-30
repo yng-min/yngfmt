@@ -9,7 +9,7 @@ from pathlib import Path
 import argparse
 
 from yngfmt.formatter import format_path
-from yngfmt.imports import find_pyproject, load_import_config
+from yngfmt.imports import ImportConfig, find_pyproject, load_import_config
 
 
 def _python_files(paths: Iterable[Path]) -> list[Path]:
@@ -53,7 +53,7 @@ def main() -> int:
         parser.error("No Python files found")
 
     pyproject_path: Path | None = arguments.pyproject or find_pyproject(files[0])
-    import_config = load_import_config(pyproject_path)
+    import_config: ImportConfig = load_import_config(pyproject_path)
 
     changed_files: list[Path] = []
     for path in files:
@@ -68,10 +68,7 @@ def main() -> int:
             print(f"{action} {path}")
 
     unchanged_count: int = len(files) - len(changed_files)
-    print(
-        f"{len(changed_files)} file(s) changed, "
-        f"{unchanged_count} file(s) left unchanged"
-    )
+    print(f"{len(changed_files)} file(s) changed, {unchanged_count} file(s) left unchanged")
     return 1 if arguments.check and changed_files else 0
 
 
