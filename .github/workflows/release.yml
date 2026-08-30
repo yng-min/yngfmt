@@ -49,6 +49,14 @@ jobs:
         if: steps.version.outputs.exists == 'false'
         run: python -m pip install -e ".[dev]"
 
+      - name: Check package formatting
+        if: steps.version.outputs.exists == 'false'
+        run: yngfmt --check src
+
+      - name: Lint package source
+        if: steps.version.outputs.exists == 'false'
+        run: ynglint src
+
       - name: Run tests
         if: steps.version.outputs.exists == 'false'
         run: pytest
