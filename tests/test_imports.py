@@ -42,6 +42,36 @@ def test_sorts_first_party_segments() -> None:
     )
 
 
+def test_keeps_flat_first_party_modules_in_one_group() -> None:
+    config = ImportConfig(first_party=("yngfmt",))
+    source = (
+        "from yngfmt.mechanical_rules import check_mechanical_rules\n"
+        "from yngfmt.imports import ImportConfig, check_imports\n"
+        "from yngfmt.formatter import format_code\n"
+    )
+
+    assert sort_imports(source=source, config=config) == (
+        "from yngfmt.formatter import format_code\n"
+        "from yngfmt.imports import ImportConfig, check_imports\n"
+        "from yngfmt.mechanical_rules import check_mechanical_rules\n"
+    )
+
+
+def test_groups_direct_module_with_detected_layer_segment() -> None:
+    source = (
+        "from project.domain.article import Article\n"
+        "from project.domain import DomainService\n"
+        "from project.application.service import Service\n"
+    )
+
+    assert sort_imports(source=source, config=CONFIG) == (
+        "from project.application.service import Service\n"
+        "\n"
+        "from project.domain import DomainService\n"
+        "from project.domain.article import Article\n"
+    )
+
+
 def test_keeps_body_separated_from_imports() -> None:
     source = "import json\n\nclass Service:\n    pass\n"
 
