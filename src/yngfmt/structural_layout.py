@@ -19,6 +19,17 @@ _SAFE_LOCAL_CHILD_TYPES: Final[tuple[type[ast.expr], ...]] = (
     ast.SetComp,
     ast.Tuple,
 )
+_COMPLEX_STATEMENT_TYPES: Final[tuple[type[ast.stmt], ...]] = (
+    ast.AsyncFor,
+    ast.AsyncWith,
+    ast.For,
+    ast.If,
+    ast.Match,
+    ast.Raise,
+    ast.Try,
+    ast.While,
+    ast.With,
+)
 
 
 def _character_column(line: str, byte_column: int) -> int:
@@ -207,6 +218,51 @@ def _collapse_once(source: str) -> str | None:
         key=lambda candidate: (candidate[1] - candidate[0], candidate[0]),
     )
     return f"{source[:start_offset]}{collapsed}{source[end_offset:]}"
+
+
+def _body_without_docstring(node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.stmt]:
+    body: list[ast.stmt] = node.body
+    if not body:
+        return body
+    first: ast.stmt = body[0]
+    if (
+        isinstance(first, ast.Expr)
+        and isinstance(first.value, ast.Constant)
+        and isinstance(first.value.value, str)
+    ):
+        return body[1:]
+    return body
+
+
+def compact_thin_function_spacing(source: str) -> str:
+    """
+    Remove decorative blank lines from deterministic two-step straight-line bodies.
+    """
+    tree: ast.Module = ast.parse(source, type_comments=True)
+    lines: list[str] = source.splitlines(keepends=True)
+    removals: list[tuple[int, int]] = []
+
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+
+        body: list[ast.stmt] = _body_without_docstring(node=node)
+        if len(body) != 2 or any(isinstance(statement, _COMPLEX_STATEMENT_TYPES) for statement in body):
+            continue
+
+        previous_end: int = body[0].end_lineno or body[0].lineno
+        current_start: int = body[1].lineno
+        if current_start - previous_end <= 1:
+            continue
+
+        gap: list[str] = lines[previous_end : current_start - 1]
+        if not gap or any(line.strip() for line in gap):
+            continue
+        removals.append((previous_end, current_start - 1))
+
+    for start, end in reversed(removals):
+        del lines[start:end]
+    return "".join(lines)
 
 
 def collapse_redundant_outer_expansions(source: str) -> str:
