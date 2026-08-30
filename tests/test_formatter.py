@@ -104,6 +104,56 @@ def test_preserves_local_multiline_argument_expansion() -> None:
     assert format_code(source) == source
 
 
+def test_collapses_redundant_outer_call_expansion() -> None:
+    source: str = '''diagnostics.extend(
+    _validate_result_keys(
+        keys=keys,
+        node=node,
+        path=path,
+        config=config,
+    )
+)
+'''
+
+    assert format_code(source) == '''diagnostics.extend(_validate_result_keys(
+    keys=keys,
+    node=node,
+    path=path,
+    config=config,
+))
+'''
+
+
+def test_collapses_redundant_single_item_list_expansion() -> None:
+    source: str = '''def build(path: str) -> list[object]:
+    return [
+        Diagnostic(
+            path=path,
+            code="YNG601",
+        )
+    ]
+'''
+
+    assert format_code(source) == '''def build(path: str) -> list[object]:
+    return [Diagnostic(
+        path=path,
+        code="YNG601",
+    )]
+'''
+
+
+def test_keeps_outer_expansion_when_comment_would_move() -> None:
+    source: str = '''service.process(
+    # explain the argument
+    create_value(
+        enabled=True,
+    ),
+)
+'''
+
+    assert format_code(source) == source
+
+
 def test_rejects_mechanical_rewrite_that_changes_ast(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
