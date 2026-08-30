@@ -7,7 +7,7 @@
 - Python style guide: `docs/python-style-guide.ko.md`
 - formatter/linter 구현: `src/yngfmt/`
 
-현재 패키지 버전은 `0.8.2`이며 style guide v4 (260726)를 기준으로 합니다.
+현재 패키지 버전은 `0.8.3`이며 style guide v4 (260726)를 기준으로 합니다.
 
 외부 Python tooling/industry convention의 참고 출처는 `docs/formatter-reference-sources.md`에서 한 번만 관리합니다. 세부 외부 규칙을 각 style 문서에 복제하지 않습니다.
 
@@ -22,7 +22,7 @@ python -m pip install -e ".[dev]"
 릴리스 tag 기준으로 직접 설치할 수도 있습니다.
 
 ```bash
-python -m pip install "git+https://github.com/yng-min/yngfmt.git@v0.8.2"
+python -m pip install "git+https://github.com/yng-min/yngfmt.git@v0.8.3"
 ```
 
 GitHub Release에는 wheel과 sdist를 첨부하도록 구성합니다.
@@ -67,6 +67,7 @@ aliases = ["success", "msg", "payload"]
 - `--line-length` 옵션을 제공하지 않습니다.
 - function call의 single-line/multi-line 판단은 line length가 아니라 style guide에 정의된 argument 수와 expression 구조를 기준으로 합니다.
 - 구조적인 call-format rule은 `ynglint`의 `YNG701`~`YNG704`가 검증합니다.
+- 단순 zero/single-argument call이 line width 때문에 펼쳐져 있으면 comment나 구조적 이유가 없는 경우 다시 한 줄로 압축합니다.
 - 단일 multi-line child 때문에 parent call 또는 single-item list까지 별도 줄로 펼쳐진 경우, comment 이동 없이 안전하면 child만 multi-line으로 남기고 parent wrapper는 다시 압축합니다.
 - 2~3개 top-level statement로 끝나는 짧은 straight-line function/method는 control flow나 주석 경계가 없다면 불필요한 body 내부 blank line을 제거해 컴팩트하게 유지합니다.
 
@@ -78,7 +79,7 @@ aliases = ["success", "msg", "payload"]
 
 기본 mechanical whitespace normalization은 pycodestyle/autopep8의 명시적인 rule allowlist만 사용하고, line-length 계열 rule이나 외부 formatter 설정은 사용하지 않습니다.
 
-기계적 whitespace pass와 LibCST custom transform pass는 각각 formatting 전후 AST equivalence를 확인하고, syntax tree가 달라지는 rewrite는 거부합니다. Import ordering은 의도적으로 statement order를 바꾸는 별도 단계이므로 이 equivalence gate와 분리합니다.
+기계적 whitespace pass와 LibCST custom transform pass는 각각 formatting 전후 AST equivalence를 확인하고, syntax tree가 달라지는 rewrite는 거부합니다. `# type: ignore[...]`의 tag와 존재 여부는 보존하되 formatter로 이동한 물리적 line number는 equivalence 비교에서 제외합니다. Import ordering은 의도적으로 statement order를 바꾸는 별도 단계이므로 이 equivalence gate와 분리합니다.
 
 `ynglint`는 자동 수정이 위험하지만 정적으로 확실하게 판정 가능한 규칙을 검사합니다.
 
@@ -122,7 +123,7 @@ aliases = ["success", "msg", "payload"]
 
 ```bash
 python -m pip install -e ".[dev]"
-yngfmt --check src
+yngfmt --check src tests
 ynglint src
 pytest
 pyright
