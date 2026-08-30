@@ -9,6 +9,8 @@
 
 현재 패키지 버전은 `0.5.0`이며 style guide v4 (260726)를 기준으로 합니다.
 
+외부 Python tooling/industry convention의 참고 출처는 `docs/formatter-reference-sources.md`에서 한 번만 관리합니다. 세부 외부 규칙을 각 style 문서에 복제하지 않습니다.
+
 ## 설치
 
 개발 중에는 editable install을 사용합니다.
@@ -72,7 +74,9 @@ aliases = ["success", "msg", "payload"]
 
 `yngfmt`는 안전하게 자동 수정 가능한 기계적 규칙만 수정합니다.
 
-기본 mechanical whitespace normalization도 line-length 계열 rule을 선택하지 않은 상태로 실행하며, 외부 formatter 설정을 읽지 않습니다.
+기본 mechanical whitespace normalization은 pycodestyle/autopep8의 명시적인 rule allowlist만 사용하고, line-length 계열 rule이나 외부 formatter 설정은 사용하지 않습니다.
+
+기계적 whitespace pass와 LibCST custom transform pass는 각각 formatting 전후 AST equivalence를 확인하고, syntax tree가 달라지는 rewrite는 거부합니다. Import ordering은 의도적으로 statement order를 바꾸는 별도 단계이므로 이 equivalence gate와 분리합니다.
 
 `ynglint`는 자동 수정이 위험하지만 정적으로 확실하게 판정 가능한 규칙을 검사합니다.
 
