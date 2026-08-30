@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "yngfmt"
+version = "0.4.0"
+description = "Python formatter and linter for yngmin's Python Style Guide"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "black>=26.3.1,<27",
+    "libcst>=1.8,<2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "build>=1.2,<2",
+    "pyright>=1.1.393,<2",
+    "pytest>=8,<9",
+]
+
+[project.scripts]
+yngfmt = "yngfmt.cli:main"
+ynglint = "yngfmt.lint_cli:main"
+
+[project.urls]
+Repository = "https://github.com/yng-min/yngfmt"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/yngfmt"]
+
+[tool.pyright]
+include = ["src", "tests"]
+pythonVersion = "3.11"
+typeCheckingMode = "standard"
+reportMissingTypeStubs = "none"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.yngfmt.imports]
+first-party = ["yngfmt"]
+language-segment = "language"
+config-segment = "config"
+
+[tool.yngfmt.result-object]
+class-names = ["Result"]
+typed-dict-names = ["ResultDict"]
+required-fields = ["error", "code", "message", "data"]
+marker-fields = ["error", "code"]
+aliases = ["success", "msg", "payload"]
