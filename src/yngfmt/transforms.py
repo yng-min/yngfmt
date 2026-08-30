@@ -4,11 +4,11 @@ Custom syntax-preserving style transforms.
 
 from __future__ import annotations
 
+from typing import Final, cast
 import json
-from typing import Final
 
+from libcst.metadata import CodeRange, MetadataWrapper, PositionProvider
 import libcst as cst
-from libcst.metadata import MetadataWrapper, PositionProvider
 
 
 _CONTROL_CHARACTERS: Final[dict[str, str]] = {
@@ -44,11 +44,11 @@ def _double_quoted_string(value: str) -> str:
 
 
 def _plain_string_value(node: cst.SimpleString) -> str | None:
-    prefix = node.prefix.lower()
+    prefix: str = node.prefix.lower()
     if prefix or node.quote in {'"""', "'''"}:
         return None
 
-    evaluated_value = node.evaluated_value
+    evaluated_value: object = node.evaluated_value
     if not isinstance(evaluated_value, str):
         return None
 
@@ -67,11 +67,11 @@ class YngminStyleTransformer(cst.CSTTransformer):
         original_node: cst.SimpleString,
         updated_node: cst.SimpleString,
     ) -> cst.SimpleString:
-        value = _plain_string_value(original_node)
+        value: str | None = _plain_string_value(node=original_node)
         if value is None:
             return updated_node
 
-        return updated_node.with_changes(value=_double_quoted_string(value))
+        return updated_node.with_changes(value=_double_quoted_string(value=value))
 
     def leave_Subscript(
         self,
@@ -80,23 +80,25 @@ class YngminStyleTransformer(cst.CSTTransformer):
     ) -> cst.Subscript:
         updated_slices: list[cst.SubscriptElement] = []
         for slice_element in updated_node.slice:
-            slice_value = slice_element.slice
+            slice_value: cst.BaseSlice = slice_element.slice
             if not isinstance(slice_value, cst.Index):
                 updated_slices.append(slice_element)
                 continue
 
-            string_node = slice_value.value
+            string_node: cst.BaseExpression = slice_value.value
             if not isinstance(string_node, cst.SimpleString):
                 updated_slices.append(slice_element)
                 continue
 
-            value = _plain_string_value(string_node)
+            value: str | None = _plain_string_value(node=string_node)
             if value is None:
                 updated_slices.append(slice_element)
                 continue
 
-            updated_string = string_node.with_changes(value=_single_quoted_string(value))
-            updated_index = slice_value.with_changes(value=updated_string)
+            updated_string: cst.SimpleString = string_node.with_changes(
+                value=_single_quoted_string(value=value),
+            )
+            updated_index: cst.Index = slice_value.with_changes(value=updated_string)
             updated_slices.append(slice_element.with_changes(slice=updated_index))
         return updated_node.with_changes(slice=tuple(updated_slices))
 
@@ -108,23 +110,26 @@ class YngminStyleTransformer(cst.CSTTransformer):
         if not original_node.elements:
             return updated_node.with_changes(
                 lbrace=updated_node.lbrace.with_changes(
-                    whitespace_after=cst.SimpleWhitespace("")
+                    whitespace_after=cst.SimpleWhitespace(""),
                 ),
                 rbrace=updated_node.rbrace.with_changes(
-                    whitespace_before=cst.SimpleWhitespace("")
+                    whitespace_before=cst.SimpleWhitespace(""),
                 ),
             )
 
-        position = self.get_metadata(PositionProvider, original_node)
+        position: CodeRange = cast(
+            CodeRange,
+            self.get_metadata(PositionProvider, original_node),
+        )
         if position.start.line != position.end.line:
             return updated_node
 
         return updated_node.with_changes(
             lbrace=updated_node.lbrace.with_changes(
-                whitespace_after=cst.SimpleWhitespace(" ")
+                whitespace_after=cst.SimpleWhitespace(" "),
             ),
             rbrace=updated_node.rbrace.with_changes(
-                whitespace_before=cst.SimpleWhitespace(" ")
+                whitespace_before=cst.SimpleWhitespace(" "),
             ),
         )
 
@@ -143,7 +148,7 @@ def apply_custom_transforms(source: str) -> str:
     """
     Apply syntax-aware custom formatting rules to source code.
     """
-    module = cst.parse_module(source)
-    wrapper = MetadataWrapper(module)
-    transformed_module = wrapper.visit(YngminStyleTransformer())
+    module: cst.Module = cst.parse_module(source)
+    wrapper: MetadataWrapper = MetadataWrapper(module)
+    transformed_module: cst.Module = wrapper.visit(YngminStyleTransformer())
     return transformed_module.code
