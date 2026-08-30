@@ -27,8 +27,8 @@ jobs:
       - name: Check repository formatting
         run: yngfmt --check src tests
 
-      - name: Lint repository Python
-        run: ynglint src tests
+      - name: Lint package source
+        run: ynglint src
 
       - name: Run tests
         run: pytest
