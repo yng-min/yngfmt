@@ -7,13 +7,14 @@ from textwrap import dedent
 import pytest
 
 from yngfmt import formatter
+
 from yngfmt.formatter import format_code
 
 
 def test_formats_quotes_and_dictionary_spacing() -> None:
     source: str = "data={'name':'test','enabled':True}\nvalue=data[\"name\"]\n"
     assert format_code(source) == (
-        'data = { "name": "test", "enabled": True }\n'
+        "data = { \"name\": \"test\", \"enabled\": True }\n"
         "value = data['name']\n"
     )
 
@@ -37,18 +38,18 @@ def test_does_not_add_spaces_to_multiline_dictionary() -> None:
 def test_uses_double_quotes_outside_dictionary_key_access() -> None:
     source: str = "message = 'hello'\nitems = {'first': 'value'}\n"
     assert format_code(source) == (
-        'message = "hello"\n'
-        'items = { "first": "value" }\n'
+        "message = \"hello\"\n"
+        "items = { \"first\": \"value\" }\n"
     )
 
 
 def test_preserves_bytes_and_prefixed_strings() -> None:
     source: str = "payload = b'abc'\npattern = r'\\d+'\n"
-    assert format_code(source) == 'payload = b"abc"\npattern = r"\\d+"\n'
+    assert format_code(source) == "payload = b\"abc\"\npattern = r\"\\d+\"\n"
 
 
 def test_preserves_f_string_expression_quotes() -> None:
-    source: str = 'message = f"fields: {\', \'.join(fields)}"\n'
+    source: str = "message = f\"fields: {', '.join(fields)}\"\n"
     assert format_code(source) == source
 
 
@@ -82,9 +83,9 @@ def test_applies_explicit_mechanical_whitespace_fixes() -> None:
 
 def test_never_wraps_code_by_line_length() -> None:
     source: str = (
-        'result = service.process(first="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", '
-        'second="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", '
-        'third="cccccccccccccccccccccccccccccccccccccccc")\n'
+        "result = service.process(first=\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", "
+        "second=\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\", "
+        "third=\"cccccccccccccccccccccccccccccccccccccccc\")\n"
     )
     assert len(source.rstrip("\n")) > 88
     assert format_code(source) == source

@@ -40,13 +40,11 @@ class ExampleService:
         value = data['name']
         return value if enabled else ""
 '''.lstrip()
-
     assert _codes(source=source) == []
 
 
 def test_reports_quote_and_key_access_rules() -> None:
     source = "message = 'hello'\nvalue = data[\"name\"]\n"
-
     assert _codes(source=source) == ["YNG101", "YNG103"]
 
 
@@ -59,13 +57,11 @@ def execute() -> None:
     Execute."""
     return None
 '''
-
     assert _codes(source=source) == ["YNG107", "YNG108"]
 
 
 def test_reports_dictionary_spacing() -> None:
     source = "data = {\"name\": \"test\"}\n"
-
     assert _codes(source=source) == ["YNG109"]
 
 
@@ -75,7 +71,6 @@ def test_reports_simple_multiline_call() -> None:
         value,
     )
 '''
-
     assert _codes(source=source) == ["YNG701"]
 
 
@@ -86,7 +81,6 @@ def test_reports_missing_multiline_trailing_comma() -> None:
         second
     )
 '''
-
     assert _codes(source=source) == ["YNG702"]
 
 
@@ -94,7 +88,6 @@ def test_reports_single_line_trailing_comma() -> None:
     source = '''def execute(value: str) -> str:
     return process(value,)
 '''
-
     assert _codes(source=source) == ["YNG703"]
 
 
@@ -103,7 +96,6 @@ def test_reports_multiline_zero_argument_call() -> None:
     return process(
     )
 '''
-
     assert _codes(source=source) == ["YNG704"]
 
 
@@ -116,7 +108,6 @@ def test_allows_structured_single_argument_call() -> None:
         ),
     )
 '''
-
     assert _codes(source=source) == []
 
 
@@ -127,7 +118,6 @@ def test_allows_local_structured_argument_expansion() -> None:
         "timeout": 10,
     })
 '''
-
     assert _codes(source=source) == []
 
 
@@ -138,13 +128,11 @@ def test_reports_outer_trailing_comma_for_local_expansion() -> None:
         "timeout": 10,
     },)
 '''
-
     assert _codes(source=source) == ["YNG703"]
 
 
 def test_reports_naming_and_type_annotation_rules() -> None:
     source = "class bad_name:\n    def GetValue(self, value):\n        return value\n"
-
     assert _codes(source=source) == ["YNG201", "YNG202", "YNG302", "YNG301"]
 
 
@@ -167,7 +155,6 @@ class Service:
 
         return None
 '''
-
     assert _codes(source=source) == ["YNG104", "YNG105", "YNG106"]
 
 
@@ -179,7 +166,6 @@ def second() -> None:
 
     return None
 '''
-
     assert _codes(source=source) == ["YNG401", "YNG403"]
 
 
@@ -190,7 +176,6 @@ def test_reports_class_method_spacing_rule() -> None:
     def second(self) -> None:
         return None
 '''
-
     assert _codes(source=source) == ["YNG402"]
 
 
@@ -200,7 +185,6 @@ def test_reports_short_wrapper_spacing_rule() -> None:
 
     return handler.execute()
 '''
-
     assert _codes(source=source) == ["YNG501"]
 
 
@@ -210,7 +194,6 @@ def test_reports_direct_return_spacing_rule() -> None:
 
     return result
 '''
-
     assert _codes(source=source) == ["YNG502"]
 
 
@@ -221,7 +204,6 @@ def test_allows_return_spacing_after_validation() -> None:
 
     return article
 '''
-
     assert _codes(source=source) == []
 
 
@@ -241,7 +223,6 @@ def test_reports_result_aliases() -> None:
     source = '''def execute() -> dict[str, object]:
     return { "success": True, "msg": "ok", "payload": None }
 '''
-
     assert _codes(source=source) == ["YNG602"]
 
 
@@ -250,7 +231,6 @@ def test_tracks_local_result_dictionary() -> None:
     result = { "error": False, "code": "SUCCESS", "message": "ok" }
     return result
 '''
-
     assert _codes(source=source) == ["YNG601"]
 
 
@@ -261,7 +241,6 @@ def test_reports_result_branch_field_mismatch() -> None:
         return { "error": False, "code": "IGNORED" }
     return { "error": False, "code": "SUCCESS", "message": "ok" }
 '''
-
     assert _codes(source=source, result_config=config) == ["YNG603"]
 
 
@@ -275,7 +254,6 @@ class OperationResult(TypedDict):
     message: str
 '''
     config = ResultConfig(typed_dict_names=("OperationResult",))
-
     assert _codes(source=source, result_config=config) == ["YNG601"]
 
 
@@ -294,7 +272,6 @@ def execute() -> OperationResult:
     return { "message": "ok", "data": None }
 '''
     config = ResultConfig(typed_dict_names=("OperationResult",))
-
     assert _codes(source=source, result_config=config) == ["YNG601"]
 
 
@@ -307,13 +284,11 @@ def test_supports_custom_result_fields() -> None:
         marker_fields=("ok",),
         aliases=(),
     )
-
     assert _codes(source=source, result_config=config) == []
 
 
 def test_reports_import_order_within_group() -> None:
     source = "import json\nfrom pathlib import Path\n"
-
     assert _codes(source=source) == ["YNG400"]
 
 
