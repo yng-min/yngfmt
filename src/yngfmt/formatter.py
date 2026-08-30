@@ -77,6 +77,8 @@ def _ast_signature(source: str) -> str:
     Return a location-independent syntax-tree signature for semantic safety checks.
     """
     tree: ast.Module = ast.parse(source, type_comments=True)
+    for type_ignore in tree.type_ignores:
+        type_ignore.lineno = 0
     return ast.dump(tree, annotate_fields=True, include_attributes=False)
 
 
