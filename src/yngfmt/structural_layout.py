@@ -5,6 +5,7 @@ Structure-aware layout normalization that never uses line width.
 from typing import Final
 import ast
 import io
+import re
 import tokenize
 
 
@@ -19,6 +20,12 @@ _SAFE_LOCAL_CHILD_TYPES: Final[tuple[type[ast.expr], ...]] = (
     ast.SetComp,
     ast.Tuple,
 )
+_SIMPLE_CALL_ARGUMENT_TYPES: Final[tuple[type[ast.expr], ...]] = (
+    ast.Attribute,
+    ast.Constant,
+    ast.JoinedStr,
+    ast.Name,
+)
 _COMPLEX_STATEMENT_TYPES: Final[tuple[type[ast.stmt], ...]] = (
     ast.AsyncFor,
     ast.AsyncWith,
@@ -30,6 +37,7 @@ _COMPLEX_STATEMENT_TYPES: Final[tuple[type[ast.stmt], ...]] = (
     ast.While,
     ast.With,
 )
+_CHAIN_BREAK_PATTERN: Final[re.Pattern[str]] = re.compile(r"[ \t]*\r?\n[ \t]*\.")
 
 
 def _character_column(line: str, byte_column: int) -> int:
@@ -218,6 +226,89 @@ def _collapse_once(source: str) -> str | None:
         key=lambda candidate: (candidate[1] - candidate[0], candidate[0]),
     )
     return f"{source[:start_offset]}{collapsed}{source[end_offset:]}"
+
+
+def _simple_call_replacement(source: str, node: ast.Call) -> str | None:
+    """
+    Return canonical compact text for a deterministic zero- or one-argument call.
+    """
+    argument_count: int = len(node.args) + len(node.keywords)
+    if argument_count > 1:
+        return None
+    if any(isinstance(argument, ast.Starred) for argument in node.args):
+        return None
+    if any(keyword.arg is None for keyword in node.keywords):
+        return None
+
+    segment: str | None = ast.get_source_segment(source, node)
+    function_text: str | None = ast.get_source_segment(source, node.func)
+    if segment is None or function_text is None or _contains_comment(segment=segment):
+        return None
+    if "\n" not in segment and "\r" not in segment:
+        return None
+
+    function_text = _CHAIN_BREAK_PATTERN.sub(".", function_text)
+    if "\n" in function_text or "\r" in function_text:
+        return None
+
+    if argument_count == 0:
+        return f"{function_text}()"
+
+    if node.args:
+        argument: ast.expr = node.args[0]
+        if not isinstance(argument, _SIMPLE_CALL_ARGUMENT_TYPES):
+            return None
+        argument_text: str | None = ast.get_source_segment(source, argument)
+        if argument_text is None or "\n" in argument_text or "\r" in argument_text:
+            return None
+        return f"{function_text}({argument_text})"
+
+    keyword: ast.keyword = node.keywords[0]
+    if not isinstance(keyword.value, _SIMPLE_CALL_ARGUMENT_TYPES):
+        return None
+    value_text: str | None = ast.get_source_segment(source, keyword.value)
+    if value_text is None or "\n" in value_text or "\r" in value_text:
+        return None
+    return f"{function_text}({keyword.arg}={value_text})"
+
+
+def _compact_simple_call_once(source: str) -> str | None:
+    """
+    Compact the smallest deterministic multiline call without consulting line width.
+    """
+    tree: ast.Module = ast.parse(source, type_comments=True)
+    candidates: list[tuple[int, int, str]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        replacement: str | None = _simple_call_replacement(source=source, node=node)
+        if replacement is None:
+            continue
+        bounds: tuple[int, int] | None = _node_bounds(source=source, node=node)
+        if bounds is None:
+            continue
+        candidates.append((bounds[0], bounds[1], replacement))
+
+    if not candidates:
+        return None
+
+    start_offset, end_offset, replacement = min(
+        candidates,
+        key=lambda candidate: (candidate[1] - candidate[0], candidate[0]),
+    )
+    return f"{source[:start_offset]}{replacement}{source[end_offset:]}"
+
+
+def compact_simple_calls(source: str) -> str:
+    """
+    Keep simple zero- and one-argument calls on one line, including call chains.
+    """
+    current_source: str = source
+    while True:
+        compacted_source: str | None = _compact_simple_call_once(source=current_source)
+        if compacted_source is None:
+            return current_source
+        current_source = compacted_source
 
 
 def _body_without_docstring(node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.stmt]:
