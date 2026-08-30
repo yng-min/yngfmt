@@ -7,7 +7,7 @@
 - Python style guide: `docs/python-style-guide.ko.md`
 - formatter/linter 구현: `src/yngfmt/`
 
-현재 패키지 버전은 `0.8.0`이며 style guide v4 (260726)를 기준으로 합니다.
+현재 패키지 버전은 `0.8.2`이며 style guide v4 (260726)를 기준으로 합니다.
 
 외부 Python tooling/industry convention의 참고 출처는 `docs/formatter-reference-sources.md`에서 한 번만 관리합니다. 세부 외부 규칙을 각 style 문서에 복제하지 않습니다.
 
@@ -22,7 +22,7 @@ python -m pip install -e ".[dev]"
 릴리스 tag 기준으로 직접 설치할 수도 있습니다.
 
 ```bash
-python -m pip install "git+https://github.com/yng-min/yngfmt.git@v0.8.0"
+python -m pip install "git+https://github.com/yng-min/yngfmt.git@v0.8.2"
 ```
 
 GitHub Release에는 wheel과 sdist를 첨부하도록 구성합니다.
@@ -68,6 +68,7 @@ aliases = ["success", "msg", "payload"]
 - function call의 single-line/multi-line 판단은 line length가 아니라 style guide에 정의된 argument 수와 expression 구조를 기준으로 합니다.
 - 구조적인 call-format rule은 `ynglint`의 `YNG701`~`YNG704`가 검증합니다.
 - 단일 multi-line child 때문에 parent call 또는 single-item list까지 별도 줄로 펼쳐진 경우, comment 이동 없이 안전하면 child만 multi-line으로 남기고 parent wrapper는 다시 압축합니다.
+- 2~3개 top-level statement로 끝나는 짧은 straight-line function/method는 control flow나 주석 경계가 없다면 불필요한 body 내부 blank line을 제거해 컴팩트하게 유지합니다.
 
 따라서 line이 길다는 이유만으로 formatter가 코드 구조를 변경하는 동작은 허용하지 않습니다.
 
@@ -128,4 +129,4 @@ pyright
 python -m build
 ```
 
-GitHub Actions에서 main push와 pull request마다 self-format check, self-lint, 테스트, Pyright, package build, CLI smoke test를 실행합니다.
+GitHub Actions에서 main push와 pull request마다 formatter self-check, linter self-check, 테스트, Pyright, package build, CLI smoke test를 실행합니다.
