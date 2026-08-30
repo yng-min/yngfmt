@@ -24,11 +24,11 @@ jobs:
       - name: Install package
         run: python -m pip install -e ".[dev]"
 
-      - name: Check package formatting
-        run: yngfmt --check src
+      - name: Check repository formatting
+        run: yngfmt --check src tests
 
-      - name: Lint package source
-        run: ynglint src
+      - name: Lint repository Python
+        run: ynglint src tests
 
       - name: Run tests
         run: pytest
