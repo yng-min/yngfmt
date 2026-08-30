@@ -7,7 +7,7 @@
 - Python style guide: `docs/python-style-guide.ko.md`
 - formatter/linter 구현: `src/yngfmt/`
 
-현재 패키지 버전은 `0.11.0`이며 style guide v5 (260830)를 기준으로 합니다.
+현재 패키지 버전은 `0.11.1`이며 style guide v5 (260830)를 기준으로 합니다.
 
 외부 Python tooling/industry convention의 참고 출처는 `docs/formatter-reference-sources.md`에서 한 번만 관리합니다. 세부 외부 규칙을 각 style 문서에 복제하지 않습니다.
 
@@ -22,7 +22,7 @@ python -m pip install -e ".[dev]"
 릴리스 tag 기준으로 직접 설치할 수도 있습니다.
 
 ```bash
-python -m pip install "git+https://github.com/yng-min/yngfmt.git@v0.11.0"
+python -m pip install "git+https://github.com/yng-min/yngfmt.git@v0.11.1"
 ```
 
 GitHub Release에는 wheel과 sdist를 첨부하도록 구성합니다.
