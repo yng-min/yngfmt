@@ -4,9 +4,9 @@ Command-line interface for yngfmt.
 
 from __future__ import annotations
 
-import argparse
 from collections.abc import Iterable
 from pathlib import Path
+import argparse
 
 from yngfmt.formatter import format_path
 from yngfmt.imports import find_pyproject, load_import_config
@@ -27,54 +27,47 @@ def _python_files(paths: Iterable[Path]) -> list[Path]:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
+    parser: argparse.ArgumentParser = argparse.ArgumentParser(
         prog="yngfmt",
-        description="Format Python code using yngmin's Python Style Guide."
+        description="Format Python code using yngmin's Python Style Guide.",
     )
     parser.add_argument("paths", nargs="+", type=Path)
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Do not write files and return a non-zero status when changes are needed."
-    )
-    parser.add_argument(
-        "--line-length",
-        default=88,
-        type=int,
-        help="Black line length used for the base formatting pass."
+        help="Do not write files and return a non-zero status when changes are needed.",
     )
     parser.add_argument(
         "--pyproject",
         type=Path,
-        help="Explicit pyproject.toml path for project import settings."
+        help="Explicit pyproject.toml path for project import settings.",
     )
     return parser
 
 
 def main() -> int:
-    parser = _build_parser()
-    arguments = parser.parse_args()
-    files = _python_files(arguments.paths)
+    parser: argparse.ArgumentParser = _build_parser()
+    arguments: argparse.Namespace = parser.parse_args()
+    files: list[Path] = _python_files(arguments.paths)
     if not files:
         parser.error("No Python files found")
 
-    pyproject_path = arguments.pyproject or find_pyproject(files[0])
+    pyproject_path: Path | None = arguments.pyproject or find_pyproject(files[0])
     import_config = load_import_config(pyproject_path)
 
     changed_files: list[Path] = []
     for path in files:
         result = format_path(
-            path,
+            path=path,
             check=arguments.check,
-            line_length=arguments.line_length,
-            import_config=import_config
+            import_config=import_config,
         )
         if result.changed:
             changed_files.append(path)
-            action = "would reformat" if arguments.check else "reformatted"
+            action: str = "would reformat" if arguments.check else "reformatted"
             print(f"{action} {path}")
 
-    unchanged_count = len(files) - len(changed_files)
+    unchanged_count: int = len(files) - len(changed_files)
     print(
         f"{len(changed_files)} file(s) changed, "
         f"{unchanged_count} file(s) left unchanged"
