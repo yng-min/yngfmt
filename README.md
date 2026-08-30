@@ -7,7 +7,7 @@
 - Python style guide: `docs/python-style-guide.ko.md`
 - formatter/linter 구현: `src/yngfmt/`
 
-현재 패키지 버전은 `0.7.0`이며 style guide v4 (260726)를 기준으로 합니다.
+현재 패키지 버전은 `0.8.0`이며 style guide v4 (260726)를 기준으로 합니다.
 
 외부 Python tooling/industry convention의 참고 출처는 `docs/formatter-reference-sources.md`에서 한 번만 관리합니다. 세부 외부 규칙을 각 style 문서에 복제하지 않습니다.
 
@@ -22,7 +22,7 @@ python -m pip install -e ".[dev]"
 릴리스 tag 기준으로 직접 설치할 수도 있습니다.
 
 ```bash
-python -m pip install "git+https://github.com/yng-min/yngfmt.git@v0.7.0"
+python -m pip install "git+https://github.com/yng-min/yngfmt.git@v0.8.0"
 ```
 
 GitHub Release에는 wheel과 sdist를 첨부하도록 구성합니다.
@@ -121,9 +121,11 @@ aliases = ["success", "msg", "payload"]
 
 ```bash
 python -m pip install -e ".[dev]"
+yngfmt --check src
+ynglint src
 pytest
 pyright
 python -m build
 ```
 
-GitHub Actions에서 main push와 pull request마다 테스트, Pyright, package build, CLI smoke test를 실행합니다.
+GitHub Actions에서 main push와 pull request마다 self-format check, self-lint, 테스트, Pyright, package build, CLI smoke test를 실행합니다.
