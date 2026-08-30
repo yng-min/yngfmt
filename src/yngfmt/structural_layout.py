@@ -142,16 +142,22 @@ def _single_multiline_child(node: ast.expr) -> tuple[ast.expr, str, str] | None:
     """
     Return one locally expandable child and the redundant parent delimiters.
     """
+    child: ast.expr
+    opener: str
+    closer: str
+
     if isinstance(node, ast.Call):
         if len(node.args) + len(node.keywords) != 1:
             return None
-        child: ast.expr = node.args[0] if node.args else node.keywords[0].value
-        delimiters: tuple[str, str] = ("(", ")")
+        child = node.args[0] if node.args else node.keywords[0].value
+        opener = "("
+        closer = ")"
     elif isinstance(node, ast.List):
         if len(node.elts) != 1:
             return None
         child = node.elts[0]
-        delimiters = ("[", "]")
+        opener = "["
+        closer = "]"
     else:
         return None
 
@@ -159,7 +165,7 @@ def _single_multiline_child(node: ast.expr) -> tuple[ast.expr, str, str] | None:
         return None
     if child.end_lineno is None or child.lineno == child.end_lineno:
         return None
-    return child, *delimiters
+    return child, opener, closer
 
 
 def _collapse_once(source: str) -> str | None:
