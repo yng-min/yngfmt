@@ -174,7 +174,7 @@ def test_preserves_generator_expression_call_layout() -> None:
     assert format_code(source) == source
 
 
-def test_preserves_comment_while_compacting_nested_simple_call() -> None:
+def test_preserves_comment_and_expanded_nested_simple_call() -> None:
     source: str = '''service.process(
     # explain the argument
     create_value(
@@ -182,11 +182,7 @@ def test_preserves_comment_while_compacting_nested_simple_call() -> None:
     ),
 )
 '''
-    assert format_code(source) == '''service.process(
-    # explain the argument
-    create_value(enabled=True),
-)
-'''
+    assert format_code(source) == source
 
 
 def test_compacts_thin_straight_line_function_body() -> None:
