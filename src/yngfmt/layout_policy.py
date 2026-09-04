@@ -235,8 +235,8 @@ def _unpacking_item_text(prefix: str, value_text: str, node: ast.expr) -> str:
     return f"{prefix}{value_text}"
 
 
-def _strict_majority(count: int, total: int) -> bool:
-    return total >= MIN_DENSITY_ITEM_COUNT and count * 2 > total
+def _strict_majority(count: int, total: int, minimum_total: int = MIN_DENSITY_ITEM_COUNT) -> bool:
+    return total >= minimum_total and count * 2 > total
 
 
 def _layout_decision(items: tuple[LayoutItem, ...], compact_length: int, *, preserve: bool = False) -> _LayoutDecision:
@@ -261,14 +261,21 @@ def _layout_decision(items: tuple[LayoutItem, ...], compact_length: int, *, pres
         (item.name_length or 0) >= LONG_NAME_LIMIT
         for item in named_items
     )
-    if _strict_majority(count=long_name_count, total=len(named_items)):
+    if _strict_majority(count=long_name_count, total=len(named_items), minimum_total=2):
         return _LayoutDecision(style=LayoutStyle.EXPANDED, hard_expansion=False)
 
     long_named_item_count: int = sum(
         item.rendered_length >= LONG_NAMED_ITEM_LIMIT
         for item in named_items
     )
-    if _strict_majority(count=long_named_item_count, total=len(named_items)):
+    if _strict_majority(count=long_named_item_count, total=len(named_items), minimum_total=2):
+        return _LayoutDecision(style=LayoutStyle.EXPANDED, hard_expansion=False)
+
+    dense_named_item_count: int = sum(
+        item.rendered_length >= DENSE_ITEM_LENGTH
+        for item in named_items
+    )
+    if _strict_majority(count=dense_named_item_count, total=len(named_items), minimum_total=2):
         return _LayoutDecision(style=LayoutStyle.EXPANDED, hard_expansion=False)
 
     dense_item_count: int = sum(

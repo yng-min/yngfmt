@@ -106,7 +106,7 @@ def test_reports_noncanonical_nested_simple_call() -> None:
         ),
     )
 '''
-    assert _codes(source=source) == ["YNG701"]
+    assert _codes(source=source) == ["YNG701", "YNG701"]
 
 
 def test_reports_outer_comma_and_nested_dictionary_layout() -> None:
@@ -116,7 +116,7 @@ def test_reports_outer_comma_and_nested_dictionary_layout() -> None:
         "timeout": 10,
     })
 '''
-    assert _codes(source=source) == ["YNG702", "YNG705"]
+    assert _codes(source=source) == ["YNG701", "YNG705"]
 
 
 def test_reports_only_nested_dictionary_layout_when_outer_comma_is_valid() -> None:
@@ -126,7 +126,7 @@ def test_reports_only_nested_dictionary_layout_when_outer_comma_is_valid() -> No
         "timeout": 10,
     },)
 '''
-    assert _codes(source=source) == ["YNG705"]
+    assert _codes(source=source) == ["YNG701", "YNG705"]
 
 
 def test_reports_dense_call_that_must_expand() -> None:
