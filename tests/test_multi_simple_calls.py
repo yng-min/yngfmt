@@ -171,6 +171,53 @@ def test_preserves_parameter_separators_when_compacting() -> None:
 '''
 
 
+def test_preserves_grouping_for_starred_conditional_call_argument() -> None:
+    source: str = "process(*((first,) if enabled else ()))\n"
+    expected: str = '''process(
+    *((first,) if enabled else ()),
+)
+'''
+    formatted: str = format_code(source)
+    assert formatted == expected
+    assert format_code(formatted) == formatted
+
+
+def test_preserves_grouping_for_starred_conditional_tuple_item() -> None:
+    source: str = "values = (first, *((second,) if enabled else ()), third)\n"
+    expected: str = '''values = (
+    first,
+    *((second,) if enabled else ()),
+    third,
+)
+'''
+    formatted: str = format_code(source)
+    assert formatted == expected
+    assert format_code(formatted) == formatted
+
+
+def test_preserves_grouping_for_double_starred_conditional_call_argument() -> None:
+    source: str = "process(**({\"enabled\": True} if condition else {}))\n"
+    expected: str = '''process(
+    **({ "enabled": True } if condition else {}),
+)
+'''
+    formatted: str = format_code(source)
+    assert formatted == expected
+    assert format_code(formatted) == formatted
+
+
+def test_preserves_grouping_for_double_starred_conditional_dictionary_item() -> None:
+    source: str = "payload = {\"value\": 1, **({\"enabled\": True} if condition else {})}\n"
+    expected: str = '''payload = {
+    "value": 1,
+    **({ "enabled": True } if condition else {}),
+}
+'''
+    formatted: str = format_code(source)
+    assert formatted == expected
+    assert format_code(formatted) == formatted
+
+
 def test_expands_five_dictionary_entries() -> None:
     source: str = "payload = { \"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4, \"e\": 5 }\n"
     assert format_code(source) == '''payload = {

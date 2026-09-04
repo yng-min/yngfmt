@@ -221,17 +221,26 @@ def _layout_item(
     )
 
 
+def _unpacking_item_text(prefix: str, value_text: str, node: ast.expr) -> str:
+    if isinstance(
+        node,
+        (ast.IfExp, ast.Lambda, ast.NamedExpr),
+    ):
+        return f"{prefix}({value_text})"
+    return f"{prefix}{value_text}"
+
+
 def _call_items(source: str, lines: list[str], offsets: list[int], node: ast.Call) -> tuple[LayoutItem, ...] | None:
     items: list[LayoutItem] = []
     for argument in node.args:
         if isinstance(argument, ast.Starred):
-            value_text: str | None = _normalized_node_text(source, lines, offsets, argument.value)
-            if value_text is None:
+            argument_text: str | None = _normalized_node_text(source, lines, offsets, argument)
+            if argument_text is None:
                 return None
             items.append(
                 _layout_item(
-                    f"*{value_text}",
-                    value_length=len(value_text),
+                    argument_text,
+                    value_length=len(argument_text) - 1,
                     has_nested_structure=True,
                 ),
             )
@@ -257,7 +266,7 @@ def _call_items(source: str, lines: list[str], offsets: list[int], node: ast.Cal
         if keyword.arg is None:
             items.append(
                 _layout_item(
-                    f"**{value_text}",
+                    _unpacking_item_text(prefix="**", value_text=value_text, node=keyword.value),
                     value_length=len(value_text),
                     has_nested_structure=True,
                 ),
@@ -374,7 +383,7 @@ def _dictionary_items(source: str, lines: list[str], offsets: list[int], node: a
         if key is None:
             items.append(
                 _layout_item(
-                    f"**{value_text}",
+                    _unpacking_item_text(prefix="**", value_text=value_text, node=value),
                     value_length=len(value_text),
                     has_nested_structure=True,
                 ),
@@ -404,13 +413,13 @@ def _sequence_items(source: str, lines: list[str], offsets: list[int], node: ast
     items: list[LayoutItem] = []
     for element in node.elts:
         if isinstance(element, ast.Starred):
-            value_text: str | None = _normalized_node_text(source, lines, offsets, element.value)
-            if value_text is None:
+            element_text: str | None = _normalized_node_text(source, lines, offsets, element)
+            if element_text is None:
                 return None
             items.append(
                 _layout_item(
-                    f"*{value_text}",
-                    value_length=len(value_text),
+                    element_text,
+                    value_length=len(element_text) - 1,
                     has_nested_structure=True,
                 ),
             )
