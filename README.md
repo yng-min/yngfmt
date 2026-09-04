@@ -7,7 +7,7 @@
 - Python style guide: `docs/python-style-guide.ko.md`
 - formatter/linter 구현: `src/yngfmt/`
 
-현재 패키지 버전은 `0.11.1`이며 style guide v5 (260830)를 기준으로 합니다.
+현재 패키지 버전은 `0.12.0`이며 style guide v6 (260905)를 기준으로 합니다.
 
 외부 Python tooling/industry convention의 참고 출처는 `docs/formatter-reference-sources.md`에서 한 번만 관리합니다. 세부 외부 규칙을 각 style 문서에 복제하지 않습니다.
 
@@ -22,7 +22,7 @@ python -m pip install -e ".[dev]"
 릴리스 tag 기준으로 직접 설치할 수도 있습니다.
 
 ```bash
-python -m pip install "git+https://github.com/yng-min/yngfmt.git@v0.11.1"
+python -m pip install "git+https://github.com/yng-min/yngfmt.git@v0.12.0"
 ```
 
 GitHub Release에는 wheel과 sdist를 첨부하도록 구성합니다.
@@ -67,17 +67,18 @@ aliases = ["success", "msg", "payload"]
 - column 수를 기준으로 일반 코드를 자동 줄바꿈하지 않습니다.
 - 긴 line을 줄이기 위한 formatter rule을 사용하지 않습니다.
 - `--line-length` 옵션을 제공하지 않습니다.
-- function call의 single-line/multi-line 판단은 기본적으로 argument expression 구조를 기준으로 합니다.
-- 단순 zero/single-argument call이 펼쳐져 있으면 comment나 구조적 이유가 없는 경우 다시 한 줄로 압축합니다.
-- 인자가 여러 개여도 모든 argument가 flat simple expression이면 개수와 무관하게 한 줄로 압축합니다.
+- function call, function definition, dictionary, list/tuple/set은 같은 layout policy와 threshold를 사용합니다.
+- formatter와 linter는 같은 layout metadata와 판정 함수를 사용하므로 canonical shape이 어긋나지 않습니다.
+- nested structure/unpacking, named-item density, item/value density 순서로 multi-line 필요 여부를 판정합니다.
+- named item 5개, 이름 24자, named item 64자, 복수의 32자 item 또는 36자 value를 deterministic threshold로 사용합니다.
+- 인자가 여러 개여도 짧은 positional argument 또는 sequence item은 개수만으로 펼치지 않습니다.
 - flat arithmetic/comparison/boolean expression은 내부에 nested call, collection, conditional 등 별도 구조가 없으면 simple expression으로 취급합니다.
-- nested call, collection/comprehension, multi-line child, comment처럼 실제 구조가 있는 argument는 기본적으로 multi-line을 유지합니다.
-- 동일 receiver와 동일 method family의 call이 다른 statement 없이 연속되는 homogeneous call run에서는 shape 일관성을 우선합니다.
-- homogeneous call run에서만 compact 결과가 200자를 넘는지 확인하는 제한적 soft guard를 사용합니다. 이는 전역 line-length 정책이 아닙니다.
-- 단일 multi-line child 때문에 parent call 또는 single-item list까지 별도 줄로 펼쳐진 경우, comment 이동 없이 안전하면 child만 multi-line으로 남기고 parent wrapper는 다시 압축합니다.
+- compact 결과가 200자를 넘으면 제한적 soft ceiling으로 multi-line을 선택합니다. 이는 일반 line-length 정책이 아닙니다.
+- comment 또는 multi-line string이 있는 container는 안전한 자동 이동 대신 현재 shape을 보존합니다.
+- nested child와 outer container는 각각 자신의 metadata로 canonical shape을 결정합니다.
 - 2~3개 top-level statement로 끝나는 짧은 straight-line function/method는 control flow나 주석 경계가 없다면 불필요한 body 내부 blank line을 제거해 컴팩트하게 유지합니다.
 
-따라서 일반적인 formatter 판단은 line length가 아니라 구조와 지역적 일관성을 기준으로 합니다.
+따라서 일반적인 formatter 판단은 line length가 아니라 구조와 item density를 기준으로 합니다.
 
 ## 책임 경계
 
@@ -111,7 +112,8 @@ aliases = ["success", "msg", "payload"]
 - `YNG401`~`YNG403`: definition spacing
 - `YNG501`~`YNG502`: wrapper/return spacing
 - `YNG601`~`YNG603`: opt-in result object consistency
-- `YNG701`~`YNG704`: function call formatting
+- `YNG701`~`YNG704`: function call layout와 trailing comma
+- `YNG705`~`YNG706`: common container canonical layout와 trailing comma
 
 상세 규칙과 설계 의도는 `docs/python-style-guide.ko.md`가 최종 기준입니다.
 

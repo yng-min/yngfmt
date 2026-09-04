@@ -1,21 +1,8 @@
 """
-Regression tests for compact multi-argument call layout.
+Regression tests for the shared structural and density layout policy.
 """
 
 from yngfmt.formatter import format_code
-
-
-def test_compacts_multiline_assertion_with_simple_arguments() -> None:
-    source: str = '''self.assertEqual(
-    comparison_process.returncode,
-    0,
-    comparison_process.stdout + comparison_process.stderr,
-)
-self.assertIn("maxAbsoluteDifference: 0", comparison_process.stdout)
-'''
-    assert format_code(source) == '''self.assertEqual(comparison_process.returncode, 0, comparison_process.stdout + comparison_process.stderr)
-self.assertIn("maxAbsoluteDifference: 0", comparison_process.stdout)
-'''
 
 
 def test_compacts_simple_positional_and_keyword_arguments() -> None:
@@ -37,40 +24,25 @@ def test_compacts_flat_expression_arguments_without_nested_structure() -> None:
     assert format_code(source) == "process(first + second + third + fourth, lower <= value < upper)\n"
 
 
-def test_keeps_call_inside_flat_expression_multiline() -> None:
-    source: str = '''process(
-    build_value() + fallback,
-    second,
-)
-'''
-    assert format_code(source) == source
-
-
-def test_keeps_nested_call_multiline() -> None:
-    source: str = '''process(
+def test_expands_call_containing_nested_expression() -> None:
+    source: str = "process(first, build_value(enabled=True, timeout=10))\n"
+    assert format_code(source) == '''process(
     first,
-    build_value(
-        enabled=True,
-        timeout=10,
-    ),
+    build_value(enabled=True, timeout=10),
 )
 '''
-    assert format_code(source) == source
 
 
-def test_keeps_collection_argument_multiline() -> None:
-    source: str = '''process(
+def test_expands_call_containing_collection() -> None:
+    source: str = "process(first, { \"enabled\": True, \"timeout\": 10 })\n"
+    assert format_code(source) == '''process(
     first,
-    {
-        "enabled": True,
-        "timeout": 10,
-    },
+    { "enabled": True, "timeout": 10 },
 )
 '''
-    assert format_code(source) == source
 
 
-def test_keeps_comment_bearing_call_multiline() -> None:
+def test_preserves_comment_bearing_container_shape() -> None:
     source: str = '''process(
     first,
     # Preserve why this value is special.
@@ -80,59 +52,151 @@ def test_keeps_comment_bearing_call_multiline() -> None:
     assert format_code(source) == source
 
 
-def test_compacts_short_complex_call_inside_homogeneous_assert_run() -> None:
-    source: str = '''self.assertIn("first", output)
-self.assertEqual(
-    actual,
-    build_expected(
-        enabled=True,
-        timeout=10,
-    ),
+def test_expands_five_named_arguments() -> None:
+    source: str = "process(alpha=1, beta=2, gamma=3, delta=4, epsilon=5)\n"
+    assert format_code(source) == '''process(
+    alpha=1,
+    beta=2,
+    gamma=3,
+    delta=4,
+    epsilon=5,
 )
-self.assertIn("second", output)
 '''
-    assert format_code(source) == '''self.assertIn("first", output)
+
+
+def test_keeps_six_short_positional_arguments_compact() -> None:
+    source: str = '''process(
+    a,
+    b,
+    c,
+    d,
+    e,
+    f,
+)
+'''
+    assert format_code(source) == "process(a, b, c, d, e, f)\n"
+
+
+def test_expands_three_long_named_arguments() -> None:
+    source: str = (
+        "process(first_descriptive_parameter=value, "
+        "second_descriptive_parameter=value, "
+        "third_descriptive_parameter=value)\n"
+    )
+    assert format_code(source) == '''process(
+    first_descriptive_parameter=value,
+    second_descriptive_parameter=value,
+    third_descriptive_parameter=value,
+)
+'''
+
+
+def test_keeps_one_long_string_compact() -> None:
+    value: str = "x" * 120
+    source: str = f'process("{value}")\n'
+    assert format_code(source) == source
+
+
+def test_expands_multiple_long_string_values() -> None:
+    first: str = "a" * 40
+    second: str = "b" * 40
+    source: str = f'process("{first}", "{second}")\n'
+    assert format_code(source) == f'''process(
+    "{first}",
+    "{second}",
+)
+'''
+
+
+def test_expands_compact_form_above_soft_ceiling() -> None:
+    value: str = "x" * 190
+    source: str = f'result = process("{value}")\n'
+    assert format_code(source) == f'''result = process(
+    "{value}",
+)
+'''
+
+
+def test_homogeneous_run_does_not_override_nested_structure() -> None:
+    source: str = '''self.assertIn("first", output)
 self.assertEqual(actual, build_expected(enabled=True, timeout=10))
 self.assertIn("second", output)
 '''
-
-
-def test_keeps_over_limit_complex_call_inside_homogeneous_assert_run() -> None:
-    long_value: str = "x" * 190
-    source: str = f'''self.assertIn("first", output)
+    assert format_code(source) == '''self.assertIn("first", output)
 self.assertEqual(
     actual,
-    build_expected(
-        value="{long_value}",
-    ),
+    build_expected(enabled=True, timeout=10),
 )
 self.assertIn("second", output)
 '''
-    assert format_code(source) == source
 
 
-def test_different_method_family_breaks_homogeneous_run() -> None:
-    source: str = '''self.assertIn("first", output)
-self.checkValue(
-    actual,
-    build_expected(
-        enabled=True,
-        timeout=10,
-    ),
-)
+def test_applies_named_density_to_function_definition() -> None:
+    source: str = "def execute(alpha: str, beta: str, gamma: str, delta: str, epsilon: str) -> None:\n    pass\n"
+    assert format_code(source) == '''def execute(
+    alpha: str,
+    beta: str,
+    gamma: str,
+    delta: str,
+    epsilon: str,
+) -> None:
+    pass
 '''
-    assert format_code(source) == source
 
 
-def test_same_receiver_and_snake_case_family_form_homogeneous_run() -> None:
-    source: str = '''client.get_value(first)
-client.get_other(
-    actual,
-    build_expected(
-        enabled=True,
-    ),
-)
+def test_compacts_sparse_function_definition() -> None:
+    source: str = '''def execute(
+    first: str,
+    second: str,
+) -> None:
+    pass
 '''
-    assert format_code(source) == '''client.get_value(first)
-client.get_other(actual, build_expected(enabled=True))
+    assert format_code(source) == '''def execute(first: str, second: str) -> None:
+    pass
 '''
+
+
+def test_preserves_parameter_separators_when_compacting() -> None:
+    source: str = '''def execute(
+    first: str,
+    /,
+    second: str = "value",
+    *,
+    enabled: bool = True,
+) -> None:
+    pass
+'''
+    assert format_code(source) == '''def execute(first: str, /, second: str = "value", *, enabled: bool = True) -> None:
+    pass
+'''
+
+
+def test_expands_five_dictionary_entries() -> None:
+    source: str = "payload = { \"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4, \"e\": 5 }\n"
+    assert format_code(source) == '''payload = {
+    "a": 1,
+    "b": 2,
+    "c": 3,
+    "d": 4,
+    "e": 5,
+}
+'''
+
+
+def test_compacts_six_short_sequence_items() -> None:
+    source: str = '''values = [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+]
+'''
+    assert format_code(source) == "values = [1, 2, 3, 4, 5, 6]\n"
+
+
+def test_is_idempotent_for_nested_layout() -> None:
+    source: str = "process(first, build_value(enabled=True, timeout=10))\n"
+    formatted: str = format_code(source)
+    assert format_code(formatted) == formatted

@@ -10,40 +10,10 @@ import tokenize
 
 
 _INDENT: Final[str] = "    "
-_SAFE_LOCAL_CHILD_TYPES: Final[tuple[type[ast.expr], ...]] = (
-    ast.Call,
-    ast.Dict,
-    ast.DictComp,
-    ast.List,
-    ast.ListComp,
-    ast.Set,
-    ast.SetComp,
-    ast.Tuple,
-)
-_SIMPLE_CALL_ARGUMENT_TYPES: Final[tuple[type[ast.expr], ...]] = (
-    ast.Attribute,
-    ast.Constant,
-    ast.JoinedStr,
-    ast.Name,
-)
-_NESTED_EXPRESSION_PARENTS: Final[tuple[type[ast.AST], ...]] = (
-    ast.Call,
-    ast.Dict,
-    ast.List,
-    ast.Set,
-    ast.Tuple,
-)
-_COMPLEX_STATEMENT_TYPES: Final[tuple[type[ast.stmt], ...]] = (
-    ast.AsyncFor,
-    ast.AsyncWith,
-    ast.For,
-    ast.If,
-    ast.Match,
-    ast.Raise,
-    ast.Try,
-    ast.While,
-    ast.With,
-)
+_SAFE_LOCAL_CHILD_TYPES: Final[tuple[type[ast.expr], ...]] = (ast.Call, ast.Dict, ast.DictComp, ast.List, ast.ListComp, ast.Set, ast.SetComp, ast.Tuple)
+_SIMPLE_CALL_ARGUMENT_TYPES: Final[tuple[type[ast.expr], ...]] = (ast.Attribute, ast.Constant, ast.JoinedStr, ast.Name)
+_NESTED_EXPRESSION_PARENTS: Final[tuple[type[ast.AST], ...]] = (ast.Call, ast.Dict, ast.List, ast.Set, ast.Tuple)
+_COMPLEX_STATEMENT_TYPES: Final[tuple[type[ast.stmt], ...]] = (ast.AsyncFor, ast.AsyncWith, ast.For, ast.If, ast.Match, ast.Raise, ast.Try, ast.While, ast.With)
 _CHAIN_BREAK_PATTERN: Final[re.Pattern[str]] = re.compile(r"[ \t]*\r?\n[ \t]*\.")
 
 
@@ -52,7 +22,9 @@ def _character_column(line: str, byte_column: int) -> int:
     Convert an AST UTF-8 byte column into a Python string column.
     """
     prefix: bytes = line.encode("utf-8")[:byte_column]
-    return len(prefix.decode("utf-8"))
+    return len(
+        prefix.decode("utf-8"),
+    )
 
 
 def _line_offsets(source: str) -> tuple[list[str], list[int]]:
@@ -62,7 +34,9 @@ def _line_offsets(source: str) -> tuple[list[str], list[int]]:
     lines: list[str] = source.splitlines(keepends=True)
     offsets: list[int] = [0]
     for line in lines:
-        offsets.append(offsets[-1] + len(line))
+        offsets.append(
+            offsets[-1] + len(line),
+        )
     return lines, offsets
 
 
@@ -88,7 +62,9 @@ def _leading_whitespace(line: str) -> str:
     """
     Return leading horizontal whitespace from one source line.
     """
-    return line[: len(line) - len(line.lstrip(" \t"))]
+    return line[: len(line) - len(
+        line.lstrip(" \t"),
+    )]
 
 
 def _contains_comment(segment: str) -> bool:
@@ -97,7 +73,9 @@ def _contains_comment(segment: str) -> bool:
     """
     return any(
         token.type == tokenize.COMMENT
-        for token in tokenize.generate_tokens(io.StringIO(segment).readline)
+        for token in tokenize.generate_tokens(
+            io.StringIO(segment).readline,
+        )
     )
 
 
@@ -105,7 +83,10 @@ def _is_implicit_string_concatenation(source: str, node: ast.expr) -> bool:
     """
     Return whether one constant is formed from adjacent string literal tokens.
     """
-    if not isinstance(node, ast.Constant) or not isinstance(node.value, (str, bytes)):
+    if not isinstance(node, ast.Constant) or not isinstance(
+        node.value,
+        (str, bytes),
+    ):
         return False
 
     segment: str | None = ast.get_source_segment(source, node)
@@ -114,7 +95,9 @@ def _is_implicit_string_concatenation(source: str, node: ast.expr) -> bool:
 
     string_token_count: int = sum(
         token.type == tokenize.STRING
-        for token in tokenize.generate_tokens(io.StringIO(segment).readline)
+        for token in tokenize.generate_tokens(
+            io.StringIO(segment).readline,
+        )
     )
     return string_token_count > 1
 
@@ -182,7 +165,13 @@ def _collapse_segment(segment: str, opener: str, closer: str) -> str | None:
 
     merged_first_line: str = f"{first_line}{first_body_line[len(outer_indent):]}"
     merged_last_line: str = f"{last_body_line}{last_line[len(outer_indent):]}"
-    return newline.join([merged_first_line, *dedented_lines[1:-1], merged_last_line])
+    return newline.join(
+        [
+            merged_first_line,
+            *dedented_lines[1:-1],
+            merged_last_line,
+        ],
+    )
 
 
 def _single_multiline_child(source: str, node: ast.expr) -> tuple[ast.expr, str, str] | None:
@@ -240,7 +229,9 @@ def _collapse_once(source: str) -> str | None:
         collapsed: str | None = _collapse_segment(segment=segment, opener=opener, closer=closer)
         if collapsed is None or collapsed == segment:
             continue
-        candidates.append((start_offset, end_offset, collapsed))
+        candidates.append(
+            (start_offset, end_offset, collapsed),
+        )
 
     if not candidates:
         return None
@@ -310,7 +301,10 @@ def _compact_simple_call_once(source: str) -> str | None:
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
-        if isinstance(parents.get(node), _NESTED_EXPRESSION_PARENTS):
+        if isinstance(
+            parents.get(node),
+            _NESTED_EXPRESSION_PARENTS,
+        ):
             continue
         replacement: str | None = _simple_call_replacement(source=source, node=node)
         if replacement is None:
@@ -318,7 +312,9 @@ def _compact_simple_call_once(source: str) -> str | None:
         bounds: tuple[int, int] | None = _node_bounds(source=source, node=node)
         if bounds is None:
             continue
-        candidates.append((bounds[0], bounds[1], replacement))
+        candidates.append(
+            (bounds[0], bounds[1], replacement),
+        )
 
     if not candidates:
         return None
@@ -365,7 +361,10 @@ def compact_thin_function_spacing(source: str) -> str:
     removals: list[tuple[int, int]] = []
 
     for node in ast.walk(tree):
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        if not isinstance(
+            node,
+            (ast.FunctionDef, ast.AsyncFunctionDef),
+        ):
             continue
 
         body: list[ast.stmt] = _body_without_docstring(node=node)
@@ -383,7 +382,9 @@ def compact_thin_function_spacing(source: str) -> str:
             gap: list[str] = lines[previous_end : current_start - 1]
             if not gap or any(line.strip() for line in gap):
                 continue
-            removals.append((previous_end, current_start - 1))
+            removals.append(
+                (previous_end, current_start - 1),
+            )
 
     for start, end in reversed(removals):
         del lines[start:end]

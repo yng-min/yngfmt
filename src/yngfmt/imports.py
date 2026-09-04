@@ -77,7 +77,10 @@ def find_pyproject(start: Path) -> Path | None:
     Find the nearest pyproject.toml from a file or directory.
     """
     current: Path = start if start.is_dir() else start.parent
-    for directory in (current, *current.parents):
+    for directory in (
+        current,
+        *current.parents,
+    ):
         candidate: Path = directory / "pyproject.toml"
         if candidate.is_file():
             return candidate
@@ -99,7 +102,10 @@ def _string_tuple(value: object) -> tuple[str, ...]:
     """
     if isinstance(value, str):
         return (value,)
-    if not isinstance(value, (list, tuple)):
+    if not isinstance(
+        value,
+        (list, tuple),
+    ):
         return ()
     return tuple(item for item in value if isinstance(item, str))
 
@@ -119,12 +125,34 @@ def load_import_config(pyproject_path: Path | None) -> ImportConfig:
     if pyproject_path is None or not pyproject_path.is_file():
         return ImportConfig()
 
-    data: dict[str, object] = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
-    tool_settings: dict[str, object] = _mapping(value=data.get("tool", {}))
-    yngfmt_settings: dict[str, object] = _mapping(value=tool_settings.get("yngfmt", {}))
-    settings: dict[str, object] = _mapping(value=yngfmt_settings.get("imports", {}))
+    data: dict[str, object] = tomllib.loads(
+        pyproject_path.read_text(encoding="utf-8"),
+    )
+    tool_settings: dict[str, object] = _mapping(
+        value=data.get(
+            "tool",
+            {},
+        ),
+    )
+    yngfmt_settings: dict[str, object] = _mapping(
+        value=tool_settings.get(
+            "yngfmt",
+            {},
+        ),
+    )
+    settings: dict[str, object] = _mapping(
+        value=yngfmt_settings.get(
+            "imports",
+            {},
+        ),
+    )
     return ImportConfig(
-        first_party=_string_tuple(value=settings.get("first-party", ())),
+        first_party=_string_tuple(
+            value=settings.get(
+                "first-party",
+                (),
+            ),
+        ),
         language_segment=_string_setting(settings=settings, key="language-segment", default="language"),
         config_segment=_string_setting(settings=settings, key="config-segment", default="config"),
     )
@@ -166,7 +194,9 @@ def _kind(node: ast.Import | ast.ImportFrom) -> ImportKind:
 
 
 def _depth(node: ast.Import | ast.ImportFrom) -> int:
-    return len(_module_parts(node=node))
+    return len(
+        _module_parts(node=node),
+    )
 
 
 def _segment_name(node: ast.Import | ast.ImportFrom, config: ImportConfig) -> str:
@@ -217,7 +247,10 @@ def _top_level_import_nodes(tree: ast.Module) -> list[ast.Import | ast.ImportFro
         start_index = 1
 
     for node in body[start_index:]:
-        if not isinstance(node, (ast.Import, ast.ImportFrom)):
+        if not isinstance(
+            node,
+            (ast.Import, ast.ImportFrom),
+        ):
             break
         nodes.append(node)
     return nodes
@@ -281,20 +314,11 @@ def _protected_lines(source: str) -> set[int]:
     return protected
 
 
-def _record_is_pinned(
-    start_line: int,
-    end_line: int,
-    protected_lines: set[int],
-) -> bool:
+def _record_is_pinned(start_line: int, end_line: int, protected_lines: set[int]) -> bool:
     return any(line in protected_lines for line in range(start_line, end_line + 1))
 
 
-def _records(
-    source: str,
-    nodes: Sequence[ast.Import | ast.ImportFrom],
-    config: ImportConfig,
-    protected_lines: set[int],
-) -> tuple[list[ImportRecord], int, int]:
+def _records(source: str, nodes: Sequence[ast.Import | ast.ImportFrom], config: ImportConfig, protected_lines: set[int]) -> tuple[list[ImportRecord], int, int]:
     lines: list[str] = source.splitlines(keepends=True)
     records: list[ImportRecord] = []
     previous_end: int = 1
@@ -304,17 +328,19 @@ def _records(
         start_line: int = _attached_start(lines=lines, start_line=node.lineno, lower_bound=previous_end)
         node_end: int = node.end_lineno or node.lineno
         end_line: int = _attached_end(lines=lines, end_line=node_end)
-        records.append(ImportRecord(
-            text="".join(lines[start_line - 1 : end_line]).strip("\n"),
-            root=_root_name(node=node),
-            module=_module_name(node=node),
-            depth=_depth(node=node),
-            kind=_kind(node=node),
-            category=_category(node=node, config=config),
-            segment=_segment_name(node=node, config=config),
-            original_index=index,
-            is_pinned=_record_is_pinned(start_line=start_line, end_line=end_line, protected_lines=protected_lines),
-        ))
+        records.append(
+            ImportRecord(
+                text="".join(lines[start_line - 1 : end_line]).strip("\n"),
+                root=_root_name(node=node),
+                module=_module_name(node=node),
+                depth=_depth(node=node),
+                kind=_kind(node=node),
+                category=_category(node=node, config=config),
+                segment=_segment_name(node=node, config=config),
+                original_index=index,
+                is_pinned=_record_is_pinned(start_line=start_line, end_line=end_line, protected_lines=protected_lines),
+            ),
+        )
         previous_end = end_line + 1
         final_end = end_line
 
@@ -322,10 +348,7 @@ def _records(
     return records, first_line, final_end
 
 
-def _sort_with_pinned_records(
-    records: Sequence[ImportRecord],
-    config: ImportConfig,
-) -> list[ImportRecord]:
+def _sort_with_pinned_records(records: Sequence[ImportRecord], config: ImportConfig) -> list[ImportRecord]:
     result: list[ImportRecord] = []
     pending: list[ImportRecord] = []
 
@@ -334,19 +357,25 @@ def _sort_with_pinned_records(
             pending.append(record)
             continue
 
-        result.extend(sorted(pending, key=lambda item: _sort_key(record=item, config=config)))
+        result.extend(
+            sorted(
+                pending,
+                key=lambda item: _sort_key(record=item, config=config),
+            ),
+        )
         pending.clear()
         result.append(record)
 
-    result.extend(sorted(pending, key=lambda item: _sort_key(record=item, config=config)))
+    result.extend(
+        sorted(
+            pending,
+            key=lambda item: _sort_key(record=item, config=config),
+        ),
+    )
     return result
 
 
-def _separator(
-    previous: ImportRecord,
-    current: ImportRecord,
-    config: ImportConfig,
-) -> str:
+def _separator(previous: ImportRecord, current: ImportRecord, config: ImportConfig) -> str:
     if previous.is_pinned or current.is_pinned:
         return "\n"
     if previous.category != current.category:
@@ -364,12 +393,17 @@ def _render(records: Sequence[ImportRecord], config: ImportConfig) -> str:
 
     parts: list[str] = [records[0].text]
     for previous, current in zip(records, records[1:]):
-        parts.append(_separator(previous=previous, current=current, config=config))
+        parts.append(
+            _separator(previous=previous, current=current, config=config),
+        )
         parts.append(current.text)
     return "".join(parts)
 
 
-def sort_imports(source: str, config: ImportConfig = ImportConfig()) -> str:
+def sort_imports(
+    source: str,
+    config: ImportConfig = ImportConfig(),
+) -> str:
     """
     Sort the leading top-level import section according to the style guide.
     """
@@ -415,4 +449,11 @@ def check_imports(
 
     nodes: list[ast.Import | ast.ImportFrom] = _top_level_import_nodes(tree=tree)
     line: int = nodes[0].lineno if nodes else 1
-    return [ImportIssue(line=line, column=1, code="YNG400", message="import section does not match project import ordering rules")]
+    return [
+        ImportIssue(
+            line=line,
+            column=1,
+            code="YNG400",
+            message="import section does not match project import ordering rules",
+        ),
+    ]

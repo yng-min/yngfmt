@@ -4,10 +4,15 @@ Tests for style guide linter rules.
 
 from pathlib import Path
 
+from yngfmt.formatter import format_code
+
 from yngfmt.linter import ResultConfig, lint_code
 
 
-def _diagnostics(source: str, result_config: ResultConfig = ResultConfig()):
+def _diagnostics(
+    source: str,
+    result_config: ResultConfig = ResultConfig(),
+):
     return lint_code(
         source=source,
         path=Path("test.py"),
@@ -15,7 +20,10 @@ def _diagnostics(source: str, result_config: ResultConfig = ResultConfig()):
     )
 
 
-def _codes(source: str, result_config: ResultConfig = ResultConfig()) -> list[str]:
+def _codes(
+    source: str,
+    result_config: ResultConfig = ResultConfig(),
+) -> list[str]:
     return [
         diagnostic.code
         for diagnostic in _diagnostics(source=source, result_config=result_config)
@@ -74,14 +82,14 @@ def test_reports_simple_multiline_call() -> None:
     assert _codes(source=source) == ["YNG701"]
 
 
-def test_reports_missing_multiline_trailing_comma() -> None:
+def test_reports_noncanonical_multiline_simple_call_before_comma_detail() -> None:
     source = '''def execute(first: str, second: str) -> str:
     return process(
         first,
         second
     )
 '''
-    assert _codes(source=source) == ["YNG702"]
+    assert _codes(source=source) == ["YNG701"]
 
 
 def test_reports_single_line_trailing_comma() -> None:
@@ -99,7 +107,7 @@ def test_reports_multiline_zero_argument_call() -> None:
     assert _codes(source=source) == ["YNG704"]
 
 
-def test_allows_structured_single_argument_call() -> None:
+def test_reports_noncanonical_nested_simple_call() -> None:
     source = '''def execute() -> str:
     return process(
         create_value(
@@ -108,27 +116,63 @@ def test_allows_structured_single_argument_call() -> None:
         ),
     )
 '''
-    assert _codes(source=source) == []
+    assert _codes(source=source) == ["YNG701"]
 
 
-def test_allows_local_structured_argument_expansion() -> None:
+def test_reports_outer_comma_and_nested_dictionary_layout() -> None:
     source = '''def execute() -> object:
     return process(options={
         "enabled": True,
         "timeout": 10,
     })
 '''
-    assert _codes(source=source) == []
+    assert _codes(source=source) == ["YNG702", "YNG705"]
 
 
-def test_reports_outer_trailing_comma_for_local_expansion() -> None:
+def test_reports_only_nested_dictionary_layout_when_outer_comma_is_valid() -> None:
     source = '''def execute() -> object:
     return process(options={
         "enabled": True,
         "timeout": 10,
     },)
 '''
-    assert _codes(source=source) == ["YNG703"]
+    assert _codes(source=source) == ["YNG705"]
+
+
+def test_reports_dense_call_that_must_expand() -> None:
+    source = "process(alpha=1, beta=2, gamma=3, delta=4, epsilon=5)\n"
+    assert _codes(source=source) == ["YNG705"]
+
+
+def test_reports_sparse_function_definition_that_must_compact() -> None:
+    source = '''def execute(
+    first: str,
+    second: str,
+) -> None:
+    return None
+'''
+    assert _codes(source=source) == ["YNG705"]
+
+
+def test_reports_missing_dictionary_trailing_comma() -> None:
+    source = '''payload = {
+    "first_descriptive_key": first_descriptive_value,
+    "second_descriptive_key": second_descriptive_value
+}
+'''
+    assert _codes(source=source) == ["YNG706"]
+
+
+def test_formatter_output_satisfies_shared_layout_linter() -> None:
+    source = '''def execute(
+    first: str,
+    second: str,
+) -> object:
+    return process(first, build_value(enabled=True, timeout=10))
+'''
+    assert _codes(
+        source=format_code(source),
+    ) == []
 
 
 def test_reports_naming_and_type_annotation_rules() -> None:
@@ -235,7 +279,9 @@ def test_tracks_local_result_dictionary() -> None:
 
 
 def test_reports_result_branch_field_mismatch() -> None:
-    config = ResultConfig(required_fields=("error", "code"))
+    config = ResultConfig(
+        required_fields=("error", "code"),
+    )
     source = '''def execute(ignored: bool) -> dict[str, object]:
     if ignored:
         return { "error": False, "code": "IGNORED" }
@@ -253,7 +299,9 @@ class OperationResult(TypedDict):
     code: str
     message: str
 '''
-    config = ResultConfig(typed_dict_names=("OperationResult",))
+    config = ResultConfig(
+        typed_dict_names=("OperationResult",),
+    )
     assert _codes(source=source, result_config=config) == ["YNG601"]
 
 
@@ -271,7 +319,9 @@ class OperationResult(TypedDict):
 def execute() -> OperationResult:
     return { "message": "ok", "data": None }
 '''
-    config = ResultConfig(typed_dict_names=("OperationResult",))
+    config = ResultConfig(
+        typed_dict_names=("OperationResult",),
+    )
     assert _codes(source=source, result_config=config) == ["YNG601"]
 
 

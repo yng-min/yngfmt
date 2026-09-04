@@ -5,7 +5,9 @@ Tests for project-aware import sorting.
 from yngfmt.imports import ImportConfig, check_imports, sort_imports
 
 
-CONFIG = ImportConfig(first_party=("project",))
+CONFIG = ImportConfig(
+    first_party=("project",),
+)
 
 
 def test_sorts_standard_and_third_party_imports() -> None:
@@ -41,7 +43,9 @@ def test_sorts_first_party_segments() -> None:
 
 
 def test_groups_each_first_party_segment_even_for_direct_modules() -> None:
-    config = ImportConfig(first_party=("yngfmt",))
+    config = ImportConfig(
+        first_party=("yngfmt",),
+    )
     source = (
         "from yngfmt.transforms import apply_custom_transforms\n"
         "from yngfmt.imports import ImportConfig, sort_imports\n"
