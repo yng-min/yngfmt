@@ -218,6 +218,31 @@ def test_preserves_grouping_for_double_starred_conditional_dictionary_item() -> 
     assert format_code(formatted) == formatted
 
 
+def test_reaches_fixed_point_for_multiline_double_starred_conditional_dictionary_item() -> None:
+    source: str = '''payload = {
+    "data": {
+        **(
+            { "production_freeze": build() }
+            if enabled
+            else {}
+        ),
+    },
+}
+'''
+    formatted: str = format_code(source)
+    assert formatted == '''payload = {
+    "data": {
+        **({
+            "production_freeze": build(),
+        }
+            if enabled
+            else {}),
+    },
+}
+'''
+    assert format_code(formatted) == formatted
+
+
 def test_expands_five_dictionary_entries() -> None:
     source: str = "payload = { \"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4, \"e\": 5 }\n"
     assert format_code(source) == '''payload = {

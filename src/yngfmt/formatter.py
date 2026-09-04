@@ -123,6 +123,16 @@ def _format_mechanical_whitespace(source: str) -> str:
     )
 
 
+def _format_once(source: str, import_config: ImportConfig) -> str:
+    whitespace_formatted: str = _format_mechanical_whitespace(source=source)
+    _require_ast_equivalence(before=source, after=whitespace_formatted, stage="mechanical whitespace pass")
+
+    import_formatted: str = sort_imports(source=whitespace_formatted, config=import_config)
+    custom_formatted: str = apply_custom_transforms(source=import_formatted)
+    _require_ast_equivalence(before=import_formatted, after=custom_formatted, stage="custom transform pass")
+    return custom_formatted
+
+
 def format_code(
     source: str,
     *,
@@ -131,13 +141,15 @@ def format_code(
     """
     Format Python source according to the supported guide rules.
     """
-    whitespace_formatted: str = _format_mechanical_whitespace(source=source)
-    _require_ast_equivalence(before=source, after=whitespace_formatted, stage="mechanical whitespace pass")
-
-    import_formatted: str = sort_imports(source=whitespace_formatted, config=import_config)
-    custom_formatted: str = apply_custom_transforms(source=import_formatted)
-    _require_ast_equivalence(before=import_formatted, after=custom_formatted, stage="custom transform pass")
-    return custom_formatted
+    current_source: str = source
+    seen_sources: set[str] = set()
+    while current_source not in seen_sources:
+        seen_sources.add(current_source)
+        formatted_source: str = _format_once(source=current_source, import_config=import_config)
+        if formatted_source == current_source:
+            return formatted_source
+        current_source = formatted_source
+    raise ValueError("yngfmt formatting passes did not converge")
 
 
 def format_path(
