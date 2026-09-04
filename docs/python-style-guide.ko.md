@@ -1,4 +1,4 @@
-# yngmin’s Python Style Guide (Korean) - v5 (260830)
+# yngmin’s Python Style Guide (Korean) - v6 (260905)
 
 > 코드 스타일, 설계 원칙 및 코딩 컨벤션
 > 
@@ -301,18 +301,33 @@ user = {
 }
 ```
 
-### 3.8 줄바꿈
+### 3.8 공통 Layout Policy
 
-Dictionary literal, list literal, function argument, chained expression은 여러 줄로 펼쳤을 때 의미 구조와 처리 단계를 더 명확하게 드러낼 수 있다면 multi-line 형태로 작성할 수 있다.
+Function call argument, function definition parameter, dictionary entry, list/tuple/set item은 하나의 공통 layout policy로 single-line 또는 multi-line canonical shape을 결정한다.
 
-줄바꿈 여부는 전역 line length가 아니라 다음 기준을 바탕으로 판단한다.
+판정 순서는 다음과 같다.
 
-- 표현식에 nested call, collection/comprehension, conditional, lambda처럼 자체적인 내부 구조가 있는가
-- 여러 값이나 처리 단계의 경계를 구분할 필요가 있는가
-- 주석이나 multi-line string을 보존하기 위해 별도의 줄이 필요한가
-- 인접한 동일 계열 호출과 shape을 맞출 필요가 있는가
+1. comment와 multi-line string을 안전하게 보존할 수 있는가
+2. nested call, collection/comprehension, conditional, lambda, unpacking처럼 item 자체의 구조가 있는가
+3. named item의 개수와 이름 길이가 높은가
+4. item 전체 또는 value가 여러 개의 긴 단위로 밀집되어 있는가
+5. compact 결과가 200자 soft ceiling을 넘는가
 
-느슨한 기준으로, **dictionary literal의 key가 5개 이상이면 multi-line 형태를 우선 고려한다.** 단, 이는 **강제 규칙이 아니다.**
+Named item은 function definition parameter, keyword argument, dictionary entry를 의미한다. Positional argument와 sequence item은 개수만으로 multi-line이 되지 않는다.
+
+Formatter가 적용하는 deterministic threshold는 다음과 같다.
+
+- nested structure 또는 unpacking이 하나라도 있으면 multi-line
+- named item이 5개 이상이면 multi-line
+- named item의 이름이 24자 이상이면 multi-line
+- `name=value` 또는 이에 대응하는 named item 전체가 64자 이상이면 multi-line
+- 32자 이상인 item이 2개 이상이면 multi-line
+- 36자 이상인 value가 2개 이상이면 multi-line
+- 현재 line의 prefix와 suffix를 포함한 compact 결과가 200자를 넘으면 multi-line
+
+위 조건에 해당하지 않는 구조는 single-line을 canonical shape으로 사용한다. 따라서 짧은 positional value가 여러 개인 call/sequence는 compact할 수 있고, 긴 positional string 하나만 있는 경우도 200자 이하라면 compact할 수 있다.
+
+Comment 또는 multi-line string이 포함된 container는 정보 손실 없는 자동 정규화가 확실하지 않으므로 현재 shape을 보존한다. Multi-line container의 각 top-level item에는 trailing comma를 사용하고 single-line container에는 trailing comma를 사용하지 않는다.
 
 평평한 arithmetic, comparison, boolean expression은 연산자가 있다는 이유만으로 복잡한 구조로 취급하지 않는다. 내부에 nested call, collection, conditional 등 별도의 구조가 없다면 flat expression으로 볼 수 있다.
 
@@ -340,11 +355,11 @@ service.process(
 )
 ```
 
-일반 formatter 판단에서는 한 줄의 길이가 짧거나 길다는 사실만으로 표현식을 접거나 펼치지 않는다. 단, homogeneous call run의 shape 일관성을 맞추기 위해 multi-line call을 한 줄로 접는 경우에만 비정상적으로 긴 line 생성을 막는 제한적인 길이 guard를 사용할 수 있다.
+200자 soft ceiling은 비정상적으로 긴 compact 결과를 막는 안전장치이며 일반적인 maximum line length가 아니다. 다른 threshold보다 짧은 line을 만들기 위한 폭 기반 formatter rule은 사용하지 않는다.
 
 > **설계 의도**
 >
-> 가독성은 문자 수보다 문맥과 표현식의 구조에 따라 달라진다. 줄바꿈은 고정된 최대 길이를 맞추기 위한 것이 아니라, 논리 구조와 처리 단계의 경계를 드러내고 비슷한 코드의 시각적 리듬을 일관되게 유지하기 위해 사용한다.
+> 가독성은 문자 수보다 문맥과 표현식의 구조 및 item 밀도에 따라 달라진다. 공통 policy는 container 종류별 예외 규칙을 줄이고 formatter와 linter가 동일한 canonical shape을 판정하게 한다.
 
 ---
 
@@ -538,9 +553,9 @@ user = service.create_user(
 
 ### 4.8.1 Function Call Formatting
 
-Function call의 single-line 또는 multi-line 형태는 전역 line length가 아니라 expression 구조와 인접한 호출의 일관성을 기준으로 결정한다.
+Function call은 3.8의 공통 layout policy를 사용한다. Function definition, dictionary, sequence와 같은 구조/밀도 metadata와 threshold를 공유한다.
 
-인자 수 자체는 multi-line의 이유가 아니다. 인자가 여러 개여도 모든 argument가 flat simple expression이면 single-line을 기본으로 한다.
+Positional argument 수 자체는 multi-line의 이유가 아니다. 모든 argument가 짧은 flat simple expression이면 argument가 여러 개여도 single-line을 사용한다. Keyword argument는 named item이므로 이름, 전체 item 길이, 개수에 대한 공통 density rule을 적용한다.
 
 Flat simple expression에는 단순 값/참조뿐 아니라 내부에 nested call, collection, conditional 등 별도 구조가 없는 평평한 arithmetic, comparison, boolean expression을 포함한다.
 
@@ -549,19 +564,16 @@ validator.check_values(actual_value, expected_value, offset + tolerance)
 process(first + second + third, lower <= value < upper)
 ```
 
-반대로 nested call, collection/comprehension, conditional, lambda, multi-line string, 설명 주석, `*args`/`**kwargs`처럼 실제 내부 구조가 있으면 multi-line을 유지할 수 있다.
+반대로 nested call, collection/comprehension, conditional, lambda, `*args`/`**kwargs`처럼 실제 내부 구조가 있으면 multi-line을 사용한다.
 
 ```python
 process(
     first,
-    build_value(
-        enabled=True,
-        timeout=10,
-    ),
+    build_value(enabled=True, timeout=10),
 )
 ```
 
-이미 nested expression 안에서 여러 인자로 펼쳐진 call은 일반적인 formatter pass에서 억지로 접지 않는다. 구조가 드러나는 현재 표현을 유지한다.
+각 nested container는 자신의 item metadata로 shape을 결정한다. 따라서 outer call은 nested argument 때문에 multi-line이더라도, nested call 자체의 argument가 짧고 sparse하면 nested call은 single-line일 수 있다.
 
 Zero-argument call은 call 자체를 `method()` 형태로 유지한다. Receiver expression이 여러 줄이라는 이유만으로 zero-argument call 자체가 multi-line call이 되는 것은 아니다.
 
@@ -577,25 +589,24 @@ return (
 
 같은 receiver에서 같은 method family가 다른 statement 없이 연속되면 하나의 homogeneous call run으로 취급한다.
 
-CamelCase method는 첫 대문자 전 prefix, snake_case method는 첫 underscore 전 prefix를 method family로 본다. 예를 들어 `validator.check_value`, `validator.check_range`는 같은 `validator.check_*` family이며 `client.get_value`, `client.get_other`는 같은 `client.get_*` family다.
+Homogeneous call run도 각 call에 공통 layout policy를 그대로 적용한다. 과거처럼 run 내부의 nested call을 예외적으로 compact하거나 별도의 200자 guard를 사용하지 않는다.
 
-동일 run에서는 가능한 호출의 shape을 일관되게 맞춘다. 일반 규칙상 nested structure 때문에 multi-line인 call도, 주석과 multi-line string을 훼손하지 않고 한 줄로 안전하게 표현할 수 있으며 결과가 지나치게 길지 않다면 compact할 수 있다.
+같은 구조와 density를 가진 call은 같은 policy 결과를 얻으므로 별도 run heuristic 없이 shape이 일관된다. 구조나 density가 실제로 다른 call을 시각적 일관성만을 이유로 강제로 접거나 펼치지 않는다.
 
 ```python
 validator.check_value(actual_value)
-validator.check_range(actual_value, build_range(minimum=0, maximum=10))
+validator.check_range(
+    actual_value,
+    build_range(minimum=0, maximum=10),
+)
 validator.check_state(current_state)
 ```
 
-이 일관성 보정에서만 compact 결과가 **200자 이하인지** 확인하는 제한적인 guard를 사용한다. 이는 전역 maximum line length가 아니며 일반 코드의 줄바꿈 기준으로 사용하지 않는다.
-
-200자를 넘거나 comment/multi-line string 보존이 필요한 경우에는 해당 call의 multi-line 구조를 유지한다. 일관성을 이유로 의미 구조를 손상시키거나 비정상적으로 긴 한 줄을 만들지 않는다.
-
 > **운영 기준**
 >
-> Single-line call에는 trailing comma를 사용하지 않는다.
+> Single-line container에는 trailing comma를 사용하지 않는다.
 >
-> Multi-line call에는 마지막 argument 뒤에도 trailing comma를 사용한다.
+> Multi-line container에는 마지막 top-level item 뒤에도 trailing comma를 사용한다.
 
 ---
 
@@ -1068,8 +1079,8 @@ logical stage 구분, naming intent, 책임 분리처럼 사람의 설계 판단
 | Docstring | quote / delimiter / spacing layout | `yngfmt` / `ynglint` | Error | Low |
 | Blank Line | mechanical definition/body spacing | `yngfmt` / `ynglint` | Error | Low |
 | Blank Line | logical stage spacing | code review | Review | High |
-| Line Breaking | simple call formatting | `yngfmt` / `ynglint` | Error | Low |
-| Line Breaking | homogeneous call-run consistency | `yngfmt --check` | Error | Low |
+| Line Breaking | common container layout policy | `yngfmt` / `ynglint` | Error | Low |
+| Line Breaking | comment / multi-line string preservation | `yngfmt --check` / code review | Review | Medium |
 | Import | origin / segment grouping / ordering | `yngfmt` / `ynglint` | Error | Low |
 | Naming | class / function / method naming format | `ynglint` | Error | Low |
 | Naming | semantic naming intent | code review | Review | High |
@@ -1265,7 +1276,7 @@ def build(self) -> Response:
 
 ## 13.4 Dictionary Multi-line
 
-Dictionary literal은 항목 수, 의미 단위, 가독성을 기준으로 single-line 또는 multi-line을 선택한다.
+Dictionary literal은 3.8의 공통 layout policy에 따라 named-item 구조와 density를 기준으로 canonical shape을 선택한다.
 
 ### Good
 
@@ -1294,17 +1305,17 @@ payload = { "article_id": article_id, "author_id": author_id }
 
 ---
 
-### Acceptable
+### Good
 
 ```python
 payload = {
     "article_id": article_id,
-    "author_id": author_id,
-    "created_at": created_at,
+    "article_creation_timestamp": article_creation_timestamp,
+    "article_update_timestamp": article_update_timestamp,
 }
 ```
 
-key가 5개 미만이어도 의미 단위를 분명하게 보여주는 편이 낫다면 multi-line을 사용할 수 있다.
+Named item이 5개 미만이어도 item이 여러 개의 긴 단위로 밀집되어 있으면 multi-line을 사용한다.
 
 ---
 

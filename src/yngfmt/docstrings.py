@@ -25,7 +25,9 @@ def _docstring_positions(tree: ast.Module) -> set[tuple[int, int]]:
     for node in ast.walk(tree):
         body = getattr(node, "body", None)
         if isinstance(body, list) and body and _is_docstring_statement(body[0]):
-            positions.add((body[0].value.lineno, body[0].value.col_offset))
+            positions.add(
+                (body[0].value.lineno, body[0].value.col_offset),
+            )
     return positions
 
 
@@ -38,10 +40,14 @@ def normalize_docstring_delimiters(source: str) -> str:
     lines: list[str] = source.splitlines(keepends=True)
     line_offsets: list[int] = [0]
     for line in lines:
-        line_offsets.append(line_offsets[-1] + len(line))
+        line_offsets.append(
+            line_offsets[-1] + len(line),
+        )
 
     replacements: list[tuple[int, int, str]] = []
-    for token in tokenize.generate_tokens(io.StringIO(source).readline):
+    for token in tokenize.generate_tokens(
+        io.StringIO(source).readline,
+    ):
         if token.type != tokenize.STRING or token.start not in positions:
             continue
 
@@ -55,9 +61,13 @@ def normalize_docstring_delimiters(source: str) -> str:
         newline: str = "\r\n" if "\r\n" in token.string else "\n"
         indent: str = " " * token.start[1]
 
-        if not body.startswith(("\n", "\r\n")):
+        if not body.startswith(
+            ("\n", "\r\n"),
+        ):
             body = f"{newline}{indent}{body}"
-        if not body.endswith((f"\n{indent}", f"\r\n{indent}")):
+        if not body.endswith(
+            (f"\n{indent}", f"\r\n{indent}"),
+        ):
             body = f"{body}{newline}{indent}"
 
         replacement: str = f"{prefix}{quote}{body}{quote}"
@@ -66,7 +76,9 @@ def normalize_docstring_delimiters(source: str) -> str:
 
         start: int = line_offsets[token.start[0] - 1] + token.start[1]
         end: int = line_offsets[token.end[0] - 1] + token.end[1]
-        replacements.append((start, end, replacement))
+        replacements.append(
+            (start, end, replacement),
+        )
 
     formatted: str = source
     for start, end, replacement in reversed(replacements):
@@ -83,7 +95,10 @@ def compact_definition_docstring_spacing(source: str) -> str:
     removals: list[tuple[int, int]] = []
 
     for node in ast.walk(tree):
-        if not isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+        if not isinstance(
+            node,
+            (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef),
+        ):
             continue
         if len(node.body) < 2 or not _is_docstring_statement(node.body[0]):
             continue
@@ -97,7 +112,9 @@ def compact_definition_docstring_spacing(source: str) -> str:
         gap: list[str] = lines[docstring_end : next_statement.lineno - 1]
         if not gap or any(line.strip() for line in gap):
             continue
-        removals.append((docstring_end, next_statement.lineno - 1))
+        removals.append(
+            (docstring_end, next_statement.lineno - 1),
+        )
 
     for start, end in reversed(removals):
         del lines[start:end]

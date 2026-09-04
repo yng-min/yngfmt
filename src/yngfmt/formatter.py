@@ -116,7 +116,9 @@ def _format_mechanical_whitespace(source: str) -> str:
     """
     return autopep8.fix_code(
         source,
-        options={ "select": list(_MECHANICAL_FIXES) },
+        options={
+            "select": list(_MECHANICAL_FIXES),
+        },
         apply_config=False,
     )
 

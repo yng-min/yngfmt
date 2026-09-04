@@ -9,7 +9,10 @@ from yngfmt.formatter import format_code
 from yngfmt.linter import ResultConfig, lint_code, load_result_config
 
 
-def _codes(source: str, result_config: ResultConfig = ResultConfig()) -> list[str]:
+def _codes(
+    source: str,
+    result_config: ResultConfig = ResultConfig(),
+) -> list[str]:
     return [
         diagnostic.code
         for diagnostic in lint_code(

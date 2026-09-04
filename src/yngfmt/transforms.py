@@ -12,9 +12,9 @@ import libcst as cst
 
 from yngfmt.docstrings import compact_definition_docstring_spacing, normalize_docstring_delimiters
 
-from yngfmt.multi_simple_calls import compact_multi_simple_calls
+from yngfmt.layout_policy import normalize_layout
 
-from yngfmt.structural_layout import collapse_redundant_outer_expansions, compact_simple_calls, compact_thin_function_spacing
+from yngfmt.structural_layout import compact_simple_calls, compact_thin_function_spacing
 
 
 _CONTROL_CHARACTERS: Final[dict[str, str]] = {
@@ -35,24 +35,9 @@ _BYTE_CONTROL_CHARACTERS: Final[dict[int, str]] = {
     12: "\\f",
     13: "\\r",
 }
-_TYPE_SUBSCRIPT_NAMES: Final[frozenset[str]] = frozenset({
-    "Annotated",
-    "ClassVar",
-    "Final",
-    "Literal",
-    "NotRequired",
-    "Optional",
-    "Required",
-    "TypeGuard",
-    "TypeIs",
-    "Union",
-    "dict",
-    "frozenset",
-    "list",
-    "set",
-    "tuple",
-    "type",
-})
+_TYPE_SUBSCRIPT_NAMES: Final[frozenset[str]] = frozenset(
+    {"Annotated", "ClassVar", "Final", "Literal", "NotRequired", "Optional", "Required", "TypeGuard", "TypeIs", "Union", "dict", "frozenset", "list", "set", "tuple", "type"},
+)
 
 
 def _single_quoted_string(value: str) -> str:
@@ -65,7 +50,9 @@ def _single_quoted_string(value: str) -> str:
         elif character in _CONTROL_CHARACTERS:
             escaped_characters.append(_CONTROL_CHARACTERS[character])
         elif ord(character) < 32 or ord(character) == 127:
-            escaped_characters.append(f"\\x{ord(character):02x}")
+            escaped_characters.append(
+                f"\\x{ord(character):02x}",
+            )
         else:
             escaped_characters.append(character)
 
@@ -86,7 +73,9 @@ def _double_quoted_bytes(value: bytes, prefix: str) -> str:
         elif byte in _BYTE_CONTROL_CHARACTERS:
             escaped_characters.append(_BYTE_CONTROL_CHARACTERS[byte])
         elif 32 <= byte < 127:
-            escaped_characters.append(chr(byte))
+            escaped_characters.append(
+                chr(byte),
+            )
         else:
             escaped_characters.append(f"\\x{byte:02x}")
 
@@ -95,7 +84,9 @@ def _double_quoted_bytes(value: bytes, prefix: str) -> str:
 
 
 def _has_odd_trailing_backslashes(value: str) -> bool:
-    trailing_backslashes: int = len(value) - len(value.rstrip("\\"))
+    trailing_backslashes: int = len(value) - len(
+        value.rstrip("\\"),
+    )
     return trailing_backslashes % 2 == 1
 
 
@@ -175,11 +166,7 @@ class YngminStyleTransformer(cst.CSTTransformer):
                 return True
             current = parent
 
-    def leave_SimpleString(
-        self,
-        original_node: cst.SimpleString,
-        updated_node: cst.SimpleString,
-    ) -> cst.SimpleString:
+    def leave_SimpleString(self, original_node: cst.SimpleString, updated_node: cst.SimpleString) -> cst.SimpleString:
         if self._inside_formatted_string(node=original_node):
             return updated_node
 
@@ -188,11 +175,7 @@ class YngminStyleTransformer(cst.CSTTransformer):
             return updated_node
         return updated_node.with_changes(value=value)
 
-    def leave_Subscript(
-        self,
-        original_node: cst.Subscript,
-        updated_node: cst.Subscript,
-    ) -> cst.Subscript:
+    def leave_Subscript(self, original_node: cst.Subscript, updated_node: cst.Subscript) -> cst.Subscript:
         if not _uses_dictionary_key_quote(node=original_node):
             return updated_node
 
@@ -213,29 +196,42 @@ class YngminStyleTransformer(cst.CSTTransformer):
                 updated_slices.append(slice_element)
                 continue
 
-            updated_string: cst.SimpleString = string_node.with_changes(value=_single_quoted_string(value=value))
+            updated_string: cst.SimpleString = string_node.with_changes(
+                value=_single_quoted_string(value=value),
+            )
             updated_index: cst.Index = slice_value.with_changes(value=updated_string)
-            updated_slices.append(slice_element.with_changes(slice=updated_index))
-        return updated_node.with_changes(slice=tuple(updated_slices))
+            updated_slices.append(
+                slice_element.with_changes(slice=updated_index),
+            )
+        return updated_node.with_changes(
+            slice=tuple(updated_slices),
+        )
 
-    def leave_Dict(
-        self,
-        original_node: cst.Dict,
-        updated_node: cst.Dict,
-    ) -> cst.Dict:
+    def leave_Dict(self, original_node: cst.Dict, updated_node: cst.Dict) -> cst.Dict:
         if not original_node.elements:
             return updated_node.with_changes(
-                lbrace=updated_node.lbrace.with_changes(whitespace_after=cst.SimpleWhitespace("")),
-                rbrace=updated_node.rbrace.with_changes(whitespace_before=cst.SimpleWhitespace("")),
+                lbrace=updated_node.lbrace.with_changes(
+                    whitespace_after=cst.SimpleWhitespace(""),
+                ),
+                rbrace=updated_node.rbrace.with_changes(
+                    whitespace_before=cst.SimpleWhitespace(""),
+                ),
             )
 
-        position: CodeRange = cast(CodeRange, self.get_metadata(PositionProvider, original_node))
+        position: CodeRange = cast(
+            CodeRange,
+            self.get_metadata(PositionProvider, original_node),
+        )
         if position.start.line != position.end.line:
             return updated_node
 
         return updated_node.with_changes(
-            lbrace=updated_node.lbrace.with_changes(whitespace_after=cst.SimpleWhitespace(" ")),
-            rbrace=updated_node.rbrace.with_changes(whitespace_before=cst.SimpleWhitespace(" ")),
+            lbrace=updated_node.lbrace.with_changes(
+                whitespace_after=cst.SimpleWhitespace(" "),
+            ),
+            rbrace=updated_node.rbrace.with_changes(
+                whitespace_before=cst.SimpleWhitespace(" "),
+            ),
         )
 
     def leave_TrailingWhitespace(
@@ -245,7 +241,9 @@ class YngminStyleTransformer(cst.CSTTransformer):
     ) -> cst.TrailingWhitespace:
         if updated_node.comment is None:
             return updated_node
-        return updated_node.with_changes(whitespace=cst.SimpleWhitespace(" "))
+        return updated_node.with_changes(
+            whitespace=cst.SimpleWhitespace(" "),
+        )
 
 
 def apply_custom_transforms(source: str) -> str:
@@ -254,10 +252,11 @@ def apply_custom_transforms(source: str) -> str:
     """
     module: cst.Module = cst.parse_module(source)
     wrapper: MetadataWrapper = MetadataWrapper(module)
-    transformed_module: cst.Module = wrapper.visit(YngminStyleTransformer())
+    transformed_module: cst.Module = wrapper.visit(
+        YngminStyleTransformer(),
+    )
     docstrings_normalized: str = normalize_docstring_delimiters(source=transformed_module.code)
     docstring_spacing_compact: str = compact_definition_docstring_spacing(source=docstrings_normalized)
-    simple_calls_compact: str = compact_simple_calls(source=docstring_spacing_compact)
-    multi_simple_calls_compact: str = compact_multi_simple_calls(source=simple_calls_compact)
-    structurally_compact: str = collapse_redundant_outer_expansions(source=multi_simple_calls_compact)
-    return compact_thin_function_spacing(source=structurally_compact)
+    call_chains_compact: str = compact_simple_calls(source=docstring_spacing_compact)
+    layout_normalized: str = normalize_layout(source=call_chains_compact)
+    return compact_thin_function_spacing(source=layout_normalized)

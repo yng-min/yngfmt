@@ -23,7 +23,7 @@ def test_keeps_empty_dictionary_compact() -> None:
     assert format_code("data = { }\n") == "data = {}\n"
 
 
-def test_does_not_add_spaces_to_multiline_dictionary() -> None:
+def test_compacts_sparse_multiline_dictionary() -> None:
     source: str = dedent(
         """
         data = {
@@ -32,7 +32,7 @@ def test_does_not_add_spaces_to_multiline_dictionary() -> None:
         }
         """
     ).lstrip()
-    assert format_code(source) == source
+    assert format_code(source) == "data = { \"name\": \"test\", \"enabled\": True }\n"
 
 
 def test_uses_double_quotes_outside_dictionary_key_access() -> None:
@@ -81,23 +81,39 @@ def test_applies_explicit_mechanical_whitespace_fixes() -> None:
     assert format_code(source) == "value = process(1, 2)\n"
 
 
-def test_never_wraps_code_by_line_length() -> None:
+def test_expands_multiple_long_named_values_by_density() -> None:
     source: str = (
         "result = service.process(first=\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", "
         "second=\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\", "
         "third=\"cccccccccccccccccccccccccccccccccccccccc\")\n"
     )
-    assert len(source.rstrip("\n")) > 88
+    assert len(
+        source.rstrip("\n"),
+    ) > 88
+    assert format_code(source) == '''result = service.process(
+    first="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    second="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    third="cccccccccccccccccccccccccccccccccccccccc",
+)
+'''
+
+
+def test_keeps_one_long_positional_value_compact_below_soft_ceiling() -> None:
+    long_value: str = "x" * 150
+    source: str = f'process("{long_value}")\n'
     assert format_code(source) == source
 
 
-def test_preserves_local_multiline_argument_expansion() -> None:
+def test_expands_outer_call_and_compacts_sparse_nested_dictionary() -> None:
     source: str = '''service.process(options={
     "enabled": True,
     "timeout": 10,
 })
 '''
-    assert format_code(source) == source
+    assert format_code(source) == '''service.process(
+    options={ "enabled": True, "timeout": 10 },
+)
+'''
 
 
 def test_compacts_simple_multiline_call_chain() -> None:
@@ -128,7 +144,7 @@ def test_compacts_broken_attribute_call_chain() -> None:
 '''
 
 
-def test_collapses_redundant_outer_call_expansion() -> None:
+def test_expands_outer_call_around_compact_nested_call() -> None:
     source: str = '''diagnostics.extend(
     _validate_result_keys(
         keys=keys,
@@ -138,16 +154,13 @@ def test_collapses_redundant_outer_call_expansion() -> None:
     )
 )
 '''
-    assert format_code(source) == '''diagnostics.extend(_validate_result_keys(
-    keys=keys,
-    node=node,
-    path=path,
-    config=config,
-))
+    assert format_code(source) == '''diagnostics.extend(
+    _validate_result_keys(keys=keys, node=node, path=path, config=config),
+)
 '''
 
 
-def test_collapses_redundant_single_item_list_expansion() -> None:
+def test_expands_list_around_compact_nested_call() -> None:
     source: str = '''def build(path: str) -> list[object]:
     return [
         Diagnostic(
@@ -157,10 +170,9 @@ def test_collapses_redundant_single_item_list_expansion() -> None:
     ]
 '''
     assert format_code(source) == '''def build(path: str) -> list[object]:
-    return [Diagnostic(
-        path=path,
-        code="YNG601",
-    )]
+    return [
+        Diagnostic(path=path, code="YNG601"),
+    ]
 '''
 
 
@@ -182,7 +194,11 @@ def test_preserves_comment_and_expanded_nested_simple_call() -> None:
     ),
 )
 '''
-    assert format_code(source) == source
+    assert format_code(source) == '''service.process(
+    # explain the argument
+    create_value(enabled=True),
+)
+'''
 
 
 def test_compacts_thin_straight_line_function_body() -> None:
@@ -219,9 +235,7 @@ def test_keeps_spacing_when_comment_marks_stage_boundary() -> None:
     assert format_code(source) == source
 
 
-def test_rejects_mechanical_rewrite_that_changes_ast(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_rejects_mechanical_rewrite_that_changes_ast(monkeypatch: pytest.MonkeyPatch) -> None:
     def change_value(source: str) -> str:
         return "value = 2\n"
 
@@ -230,9 +244,7 @@ def test_rejects_mechanical_rewrite_that_changes_ast(
         format_code("value = 1\n")
 
 
-def test_rejects_custom_rewrite_that_changes_ast(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_rejects_custom_rewrite_that_changes_ast(monkeypatch: pytest.MonkeyPatch) -> None:
     def change_value(source: str) -> str:
         return "value = 2\n"
 
