@@ -87,9 +87,7 @@ def test_expands_multiple_long_named_values_by_density() -> None:
         "second=\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\", "
         "third=\"cccccccccccccccccccccccccccccccccccccccc\")\n"
     )
-    assert len(
-        source.rstrip("\n"),
-    ) > 88
+    assert len(source.rstrip("\n")) > 88
     assert format_code(source) == '''result = service.process(
     first="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     second="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",

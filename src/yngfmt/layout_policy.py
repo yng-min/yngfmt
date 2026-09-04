@@ -439,7 +439,13 @@ def _function_items(source: str, lines: list[str], offsets: list[int], node: ast
             if index >= default_start
             else None
         )
-        item: LayoutItem | None = _parameter_item(source=source, lines=lines, offsets=offsets, parameter=parameter, default=default)
+        item: LayoutItem | None = _parameter_item(
+            source=source,
+            lines=lines,
+            offsets=offsets,
+            parameter=parameter,
+            default=default,
+        )
         if item is None:
             return None
         items.append(item)
@@ -448,7 +454,14 @@ def _function_items(source: str, lines: list[str], offsets: list[int], node: ast
             items.append(_layout_item("/"))
 
     if node.args.vararg is not None:
-        item = _parameter_item(source=source, lines=lines, offsets=offsets, parameter=node.args.vararg, default=None, prefix="*")
+        item = _parameter_item(
+            source=source,
+            lines=lines,
+            offsets=offsets,
+            parameter=node.args.vararg,
+            default=None,
+            prefix="*",
+        )
         if item is None:
             return None
         items.append(item)
@@ -456,13 +469,26 @@ def _function_items(source: str, lines: list[str], offsets: list[int], node: ast
         items.append(_layout_item("*"))
 
     for parameter, default in zip(node.args.kwonlyargs, node.args.kw_defaults):
-        item = _parameter_item(source=source, lines=lines, offsets=offsets, parameter=parameter, default=default)
+        item = _parameter_item(
+            source=source,
+            lines=lines,
+            offsets=offsets,
+            parameter=parameter,
+            default=default,
+        )
         if item is None:
             return None
         items.append(item)
 
     if node.args.kwarg is not None:
-        item = _parameter_item(source=source, lines=lines, offsets=offsets, parameter=node.args.kwarg, default=None, prefix="**")
+        item = _parameter_item(
+            source=source,
+            lines=lines,
+            offsets=offsets,
+            parameter=node.args.kwarg,
+            default=None,
+            prefix="**",
+        )
         if item is None:
             return None
         items.append(item)
@@ -493,10 +519,8 @@ def _dictionary_items(source: str, lines: list[str], offsets: list[int], node: a
                 value_length=len(value_text.replace("\n", "").replace("\r", "")),
                 name_length=len(key_text),
                 is_named=True,
-                has_nested_structure=(
-                    _expression_requires_expansion(source=source, lines=lines, offsets=offsets, node=key)
-                    or _expression_requires_expansion(source=source, lines=lines, offsets=offsets, node=value)
-                ),
+                has_nested_structure=_expression_requires_expansion(source=source, lines=lines, offsets=offsets, node=key)
+                or _expression_requires_expansion(source=source, lines=lines, offsets=offsets, node=value),
             ),
         )
 
@@ -861,7 +885,13 @@ def _layout_targets(source: str) -> list[_LayoutTarget]:
         if isinstance(node, ast.Call):
             kind = LayoutKind.CALL
             items = _call_items(source=source, lines=lines, offsets=offsets, node=node)
-            delimiters = _expression_delimiters(source=source, lines=lines, offsets=offsets, tokens=tokens, node=node)
+            delimiters = _expression_delimiters(
+                source=source,
+                lines=lines,
+                offsets=offsets,
+                tokens=tokens,
+                node=node,
+            )
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             kind = LayoutKind.FUNCTION_DEFINITION
             items = _function_items(source=source, lines=lines, offsets=offsets, node=node)
@@ -869,19 +899,43 @@ def _layout_targets(source: str) -> list[_LayoutTarget]:
         elif isinstance(node, ast.Dict):
             kind = LayoutKind.DICTIONARY
             items = _dictionary_items(source=source, lines=lines, offsets=offsets, node=node)
-            delimiters = _expression_delimiters(source=source, lines=lines, offsets=offsets, tokens=tokens, node=node)
+            delimiters = _expression_delimiters(
+                source=source,
+                lines=lines,
+                offsets=offsets,
+                tokens=tokens,
+                node=node,
+            )
         elif isinstance(node, ast.List):
             kind = LayoutKind.LIST
             items = _sequence_items(source=source, lines=lines, offsets=offsets, node=node)
-            delimiters = _expression_delimiters(source=source, lines=lines, offsets=offsets, tokens=tokens, node=node)
+            delimiters = _expression_delimiters(
+                source=source,
+                lines=lines,
+                offsets=offsets,
+                tokens=tokens,
+                node=node,
+            )
         elif isinstance(node, ast.Set):
             kind = LayoutKind.SET
             items = _sequence_items(source=source, lines=lines, offsets=offsets, node=node)
-            delimiters = _expression_delimiters(source=source, lines=lines, offsets=offsets, tokens=tokens, node=node)
+            delimiters = _expression_delimiters(
+                source=source,
+                lines=lines,
+                offsets=offsets,
+                tokens=tokens,
+                node=node,
+            )
         elif isinstance(node, ast.Tuple):
             kind = LayoutKind.TUPLE
             items = _sequence_items(source=source, lines=lines, offsets=offsets, node=node)
-            delimiters = _expression_delimiters(source=source, lines=lines, offsets=offsets, tokens=tokens, node=node)
+            delimiters = _expression_delimiters(
+                source=source,
+                lines=lines,
+                offsets=offsets,
+                tokens=tokens,
+                node=node,
+            )
         else:
             continue
 
@@ -970,7 +1024,10 @@ def normalize_layout(source: str) -> str:
             return current_source
 
         selected: list[tuple[int, int, str]] = []
-        for candidate in sorted(candidates, key=lambda item: (item[1] - item[0], item[0])):
+        for candidate in sorted(
+            candidates,
+            key=lambda item: (item[1] - item[0], item[0]),
+        ):
             start_offset, end_offset, _ = candidate
             if any(
                 start_offset < selected_end
@@ -980,7 +1037,11 @@ def normalize_layout(source: str) -> str:
                 continue
             selected.append(candidate)
 
-        for start_offset, end_offset, replacement in sorted(selected, key=lambda item: item[0], reverse=True):
+        for start_offset, end_offset, replacement in sorted(
+            selected,
+            key=lambda item: item[0],
+            reverse=True,
+        ):
             current_source = (
                 f"{current_source[:start_offset]}"
                 f"{replacement}"

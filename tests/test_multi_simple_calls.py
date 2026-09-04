@@ -45,7 +45,7 @@ def test_compacts_outer_call_around_sparse_nested_collection() -> None:
     },
 )
 """
-    assert format_code(source) == 'process(first, { "enabled": True, "timeout": 10 })\n'
+    assert format_code(source) == "process(first, { \"enabled\": True, \"timeout\": 10 })\n"
 
 
 def test_preserves_comment_bearing_container_shape() -> None:
@@ -314,7 +314,7 @@ def test_preserves_grouping_for_starred_conditional_tuple_item() -> None:
 
 
 def test_preserves_grouping_for_double_starred_conditional_call_argument() -> None:
-    source: str = 'process(**({"enabled": True} if condition else {}))\n'
+    source: str = "process(**({\"enabled\": True} if condition else {}))\n"
     expected: str = """process(
     **({ "enabled": True } if condition else {}),
 )
@@ -325,7 +325,7 @@ def test_preserves_grouping_for_double_starred_conditional_call_argument() -> No
 
 
 def test_preserves_grouping_for_double_starred_conditional_dictionary_item() -> None:
-    source: str = 'payload = {"value": 1, **({"enabled": True} if condition else {})}\n'
+    source: str = "payload = {\"value\": 1, **({\"enabled\": True} if condition else {})}\n"
     expected: str = """payload = {
     "value": 1,
     **({ "enabled": True } if condition else {}),
@@ -352,7 +352,7 @@ def test_reaches_fixed_point_for_multiline_double_starred_conditional_dictionary
 
 
 def test_expands_five_dictionary_entries() -> None:
-    source: str = 'payload = { "a": 1, "b": 2, "c": 3, "d": 4, "e": 5 }\n'
+    source: str = "payload = { \"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4, \"e\": 5 }\n"
     assert format_code(source) == """payload = {
     "a": 1,
     "b": 2,
