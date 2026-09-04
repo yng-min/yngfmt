@@ -43,17 +43,12 @@ def _docstring_value(body: list[ast.stmt]) -> ast.Constant | None:
 def _docstring_positions(tree: ast.Module) -> set[tuple[int, int]]:
     positions: set[tuple[int, int]] = set()
     for node in ast.walk(tree):
-        if not isinstance(
-            node,
-            (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef),
-        ):
+        if not isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
 
         docstring_value: ast.Constant | None = _docstring_value(body=node.body)
         if docstring_value is not None:
-            positions.add(
-                (docstring_value.lineno, docstring_value.col_offset),
-            )
+            positions.add((docstring_value.lineno, docstring_value.col_offset))
     return positions
 
 
@@ -68,9 +63,7 @@ def _check_docstring_delimiter_layout(source: str, tree: ast.Module) -> list[Mec
     positions: set[tuple[int, int]] = _docstring_positions(tree=tree)
     diagnostics: list[MechanicalIssue] = []
 
-    for token in tokenize.generate_tokens(
-        io.StringIO(source).readline,
-    ):
+    for token in tokenize.generate_tokens(io.StringIO(source).readline):
         if token.type != tokenize.STRING or token.start not in positions:
             continue
 
@@ -82,26 +75,10 @@ def _check_docstring_delimiter_layout(source: str, tree: ast.Module) -> list[Mec
             continue
 
         body: str = token.string[len(prefix) + len(quote) : -len(quote)]
-        if not body.startswith(
-            ("\n", "\r\n"),
-        ):
-            diagnostics.append(
-                MechanicalIssue(
-                    line=token.start[0],
-                    column=token.start[1] + 1,
-                    code="YNG107",
-                    message="docstring content must start on the line after opening quotes",
-                ),
-            )
+        if not body.startswith(("\n", "\r\n")):
+            diagnostics.append(MechanicalIssue(line=token.start[0], column=token.start[1] + 1, code="YNG107", message="docstring content must start on the line after opening quotes"))
         if _DOCSTRING_CLOSING_LINE_PATTERN.search(body) is None:
-            diagnostics.append(
-                MechanicalIssue(
-                    line=token.end[0],
-                    column=max(1, token.end[1] - 2),
-                    code="YNG108",
-                    message="docstring closing quotes must be on their own line",
-                ),
-            )
+            diagnostics.append(MechanicalIssue(line=token.end[0], column=max(1, token.end[1] - 2), code="YNG108", message="docstring closing quotes must be on their own line"))
     return diagnostics
 
 
@@ -123,14 +100,7 @@ def _check_dictionary_spacing(source: str, tree: ast.Module) -> list[MechanicalI
         if is_valid:
             continue
 
-        diagnostics.append(
-            MechanicalIssue(
-                line=node.lineno,
-                column=node.col_offset + 1,
-                code="YNG109",
-                message="single-line dictionary literal has non-canonical inner spacing",
-            ),
-        )
+        diagnostics.append(MechanicalIssue(line=node.lineno, column=node.col_offset + 1, code="YNG109", message="single-line dictionary literal has non-canonical inner spacing"))
     return diagnostics
 
 
@@ -152,21 +122,12 @@ def _check_container_layout(source: str, tree: ast.Module) -> list[MechanicalIss
             else:
                 code = "YNG705"
                 message = f"{context.kind.value} must use {context.expected_style.value} canonical layout"
-            diagnostics.append(
-                MechanicalIssue(line=context.line, column=context.column, code=code, message=message),
-            )
+            diagnostics.append(MechanicalIssue(line=context.line, column=context.column, code=code, message=message))
             continue
 
         if context.actual_style == LayoutStyle.EXPANDED and not context.has_trailing_comma:
             code = "YNG702" if context.kind == LayoutKind.CALL else "YNG706"
-            diagnostics.append(
-                MechanicalIssue(
-                    line=context.line,
-                    column=context.column,
-                    code=code,
-                    message=f"expanded {context.kind.value} must end its final item with a trailing comma",
-                ),
-            )
+            diagnostics.append(MechanicalIssue(line=context.line, column=context.column, code=code, message=f"expanded {context.kind.value} must end its final item with a trailing comma"))
         elif (
             context.actual_style == LayoutStyle.COMPACT
             and context.has_trailing_comma
@@ -176,14 +137,7 @@ def _check_container_layout(source: str, tree: ast.Module) -> list[MechanicalIss
             )
         ):
             code = "YNG703" if context.kind == LayoutKind.CALL else "YNG706"
-            diagnostics.append(
-                MechanicalIssue(
-                    line=context.line,
-                    column=context.column,
-                    code=code,
-                    message=f"compact {context.kind.value} must not use a trailing comma",
-                ),
-            )
+            diagnostics.append(MechanicalIssue(line=context.line, column=context.column, code=code, message=f"compact {context.kind.value} must not use a trailing comma"))
     return diagnostics
 
 

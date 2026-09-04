@@ -2,7 +2,12 @@
 Regression tests for the shared structural and density layout policy.
 """
 
+from pathlib import Path
+
 from yngfmt.formatter import format_code
+
+
+_FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def test_compacts_simple_positional_and_keyword_arguments() -> None:
@@ -24,20 +29,27 @@ def test_compacts_flat_expression_arguments_without_nested_structure() -> None:
     assert format_code(source) == "process(first + second + third + fourth, lower <= value < upper)\n"
 
 
-def test_expands_call_containing_nested_expression() -> None:
+def test_compacts_call_containing_canonically_compact_nested_expression() -> None:
     source: str = "process(first, build_value(enabled=True, timeout=10))\n"
-    assert format_code(source) == '''process(
-    first,
-    build_value(enabled=True, timeout=10),
-)
-'''
+    assert format_code(source) == source
 
 
-def test_expands_call_containing_collection() -> None:
+def test_compacts_call_containing_canonically_compact_collection() -> None:
     source: str = "process(first, { \"enabled\": True, \"timeout\": 10 })\n"
+    assert format_code(source) == source
+
+
+def test_expands_parent_only_when_nested_child_is_canonically_expanded() -> None:
+    source: str = "process(first, build_value(alpha=1, beta=2, gamma=3, delta=4, epsilon=5))\n"
     assert format_code(source) == '''process(
     first,
-    { "enabled": True, "timeout": 10 },
+    build_value(
+        alpha=1,
+        beta=2,
+        gamma=3,
+        delta=4,
+        epsilon=5,
+    ),
 )
 '''
 
@@ -97,6 +109,16 @@ def test_keeps_one_long_string_compact() -> None:
     assert format_code(source) == source
 
 
+def test_keeps_one_long_named_item_compact() -> None:
+    source: str = "parser.add_argument(\"--fl-studio-version\", help=\"Override Windows auto-discovery with one known FL Studio version.\")\n"
+    assert format_code(source) == source
+
+
+def test_keeps_one_long_name_compact() -> None:
+    source: str = "process(extraordinarily_long_parameter_name=value, short=1)\n"
+    assert format_code(source) == source
+
+
 def test_expands_multiple_long_string_values() -> None:
     first: str = "a" * 40
     second: str = "b" * 40
@@ -117,18 +139,39 @@ def test_expands_compact_form_above_soft_ceiling() -> None:
 '''
 
 
-def test_homogeneous_run_does_not_override_nested_structure() -> None:
+def test_unrelated_call_run_does_not_override_recursive_layout() -> None:
     source: str = '''self.assertIn("first", output)
 self.assertEqual(actual, build_expected(enabled=True, timeout=10))
 self.assertIn("second", output)
 '''
-    assert format_code(source) == '''self.assertIn("first", output)
-self.assertEqual(
-    actual,
-    build_expected(enabled=True, timeout=10),
-)
-self.assertIn("second", output)
+    assert format_code(source) == source
+
+
+def test_same_callee_cohort_only_promotes_compact_calls() -> None:
+    source: str = '''parser.add_argument("--short", help="Short help.")
+parser.add_argument("--dense", alpha=1, beta=2, gamma=3, delta=4, epsilon=5)
 '''
+    assert format_code(source) == '''parser.add_argument(
+    "--short",
+    help="Short help.",
+)
+parser.add_argument(
+    "--dense",
+    alpha=1,
+    beta=2,
+    gamma=3,
+    delta=4,
+    epsilon=5,
+)
+'''
+
+
+def test_formats_meloft_argparse_registration_fixture_consistently() -> None:
+    source: str = (_FIXTURES / "meloft_argparse.input.txt").read_text(encoding="utf-8")
+    expected: str = (_FIXTURES / "meloft_argparse.expected.txt").read_text(encoding="utf-8")
+    formatted: str = format_code(source)
+    assert formatted == expected
+    assert format_code(formatted) == formatted
 
 
 def test_applies_named_density_to_function_definition() -> None:
@@ -232,11 +275,9 @@ def test_reaches_fixed_point_for_multiline_double_starred_conditional_dictionary
     formatted: str = format_code(source)
     assert formatted == '''payload = {
     "data": {
-        **({
-            "production_freeze": build(),
-        }
-            if enabled
-            else {}),
+        **({ "production_freeze": build() }
+        if enabled
+        else {}),
     },
 }
 '''

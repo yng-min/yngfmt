@@ -114,13 +114,7 @@ def _format_mechanical_whitespace(source: str) -> str:
     """
     Normalize explicitly selected mechanical whitespace without width-based rewriting.
     """
-    return autopep8.fix_code(
-        source,
-        options={
-            "select": list(_MECHANICAL_FIXES),
-        },
-        apply_config=False,
-    )
+    return autopep8.fix_code(source, options={ "select": list(_MECHANICAL_FIXES) }, apply_config=False)
 
 
 def _format_once(source: str, import_config: ImportConfig) -> str:
@@ -133,11 +127,7 @@ def _format_once(source: str, import_config: ImportConfig) -> str:
     return custom_formatted
 
 
-def format_code(
-    source: str,
-    *,
-    import_config: ImportConfig = ImportConfig(),
-) -> str:
+def format_code(source: str, *, import_config: ImportConfig = ImportConfig()) -> str:
     """
     Format Python source according to the supported guide rules.
     """
@@ -152,12 +142,7 @@ def format_code(
     raise ValueError("yngfmt formatting passes did not converge")
 
 
-def format_path(
-    path: Path,
-    *,
-    check: bool = False,
-    import_config: ImportConfig = ImportConfig(),
-) -> FormatResult:
+def format_path(path: Path, *, check: bool = False, import_config: ImportConfig = ImportConfig()) -> FormatResult:
     """
     Format one Python file and optionally write the result.
     """

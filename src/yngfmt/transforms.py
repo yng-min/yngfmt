@@ -50,9 +50,7 @@ def _single_quoted_string(value: str) -> str:
         elif character in _CONTROL_CHARACTERS:
             escaped_characters.append(_CONTROL_CHARACTERS[character])
         elif ord(character) < 32 or ord(character) == 127:
-            escaped_characters.append(
-                f"\\x{ord(character):02x}",
-            )
+            escaped_characters.append(f"\\x{ord(character):02x}")
         else:
             escaped_characters.append(character)
 
@@ -73,9 +71,7 @@ def _double_quoted_bytes(value: bytes, prefix: str) -> str:
         elif byte in _BYTE_CONTROL_CHARACTERS:
             escaped_characters.append(_BYTE_CONTROL_CHARACTERS[byte])
         elif 32 <= byte < 127:
-            escaped_characters.append(
-                chr(byte),
-            )
+            escaped_characters.append(chr(byte))
         else:
             escaped_characters.append(f"\\x{byte:02x}")
 
@@ -84,9 +80,7 @@ def _double_quoted_bytes(value: bytes, prefix: str) -> str:
 
 
 def _has_odd_trailing_backslashes(value: str) -> bool:
-    trailing_backslashes: int = len(value) - len(
-        value.rstrip("\\"),
-    )
+    trailing_backslashes: int = len(value) - len(value.rstrip("\\"))
     return trailing_backslashes % 2 == 1
 
 
@@ -196,42 +190,25 @@ class YngminStyleTransformer(cst.CSTTransformer):
                 updated_slices.append(slice_element)
                 continue
 
-            updated_string: cst.SimpleString = string_node.with_changes(
-                value=_single_quoted_string(value=value),
-            )
+            updated_string: cst.SimpleString = string_node.with_changes(value=_single_quoted_string(value=value))
             updated_index: cst.Index = slice_value.with_changes(value=updated_string)
-            updated_slices.append(
-                slice_element.with_changes(slice=updated_index),
-            )
-        return updated_node.with_changes(
-            slice=tuple(updated_slices),
-        )
+            updated_slices.append(slice_element.with_changes(slice=updated_index))
+        return updated_node.with_changes(slice=tuple(updated_slices))
 
     def leave_Dict(self, original_node: cst.Dict, updated_node: cst.Dict) -> cst.Dict:
         if not original_node.elements:
             return updated_node.with_changes(
-                lbrace=updated_node.lbrace.with_changes(
-                    whitespace_after=cst.SimpleWhitespace(""),
-                ),
-                rbrace=updated_node.rbrace.with_changes(
-                    whitespace_before=cst.SimpleWhitespace(""),
-                ),
+                lbrace=updated_node.lbrace.with_changes(whitespace_after=cst.SimpleWhitespace("")),
+                rbrace=updated_node.rbrace.with_changes(whitespace_before=cst.SimpleWhitespace("")),
             )
 
-        position: CodeRange = cast(
-            CodeRange,
-            self.get_metadata(PositionProvider, original_node),
-        )
+        position: CodeRange = cast(CodeRange, self.get_metadata(PositionProvider, original_node))
         if position.start.line != position.end.line:
             return updated_node
 
         return updated_node.with_changes(
-            lbrace=updated_node.lbrace.with_changes(
-                whitespace_after=cst.SimpleWhitespace(" "),
-            ),
-            rbrace=updated_node.rbrace.with_changes(
-                whitespace_before=cst.SimpleWhitespace(" "),
-            ),
+            lbrace=updated_node.lbrace.with_changes(whitespace_after=cst.SimpleWhitespace(" ")),
+            rbrace=updated_node.rbrace.with_changes(whitespace_before=cst.SimpleWhitespace(" ")),
         )
 
     def leave_TrailingWhitespace(
@@ -241,9 +218,7 @@ class YngminStyleTransformer(cst.CSTTransformer):
     ) -> cst.TrailingWhitespace:
         if updated_node.comment is None:
             return updated_node
-        return updated_node.with_changes(
-            whitespace=cst.SimpleWhitespace(" "),
-        )
+        return updated_node.with_changes(whitespace=cst.SimpleWhitespace(" "))
 
 
 def apply_custom_transforms(source: str) -> str:
@@ -252,9 +227,7 @@ def apply_custom_transforms(source: str) -> str:
     """
     module: cst.Module = cst.parse_module(source)
     wrapper: MetadataWrapper = MetadataWrapper(module)
-    transformed_module: cst.Module = wrapper.visit(
-        YngminStyleTransformer(),
-    )
+    transformed_module: cst.Module = wrapper.visit(YngminStyleTransformer())
     docstrings_normalized: str = normalize_docstring_delimiters(source=transformed_module.code)
     docstring_spacing_compact: str = compact_definition_docstring_spacing(source=docstrings_normalized)
     call_chains_compact: str = compact_simple_calls(source=docstring_spacing_compact)

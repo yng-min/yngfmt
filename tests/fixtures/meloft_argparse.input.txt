@@ -1,0 +1,63 @@
+def configure_snapshot_parser() -> None:
+    snapshot_parser.add_argument("--device-id", required=True, help="Opaque Meloft device identifier.")
+    snapshot_parser.add_argument("--owner-user-id", help="Optional opaque Meloft user identifier.")
+    snapshot_parser.add_argument("--device-label", help="Optional local device label.")
+    snapshot_parser.add_argument(
+        "--fl-studio-version",
+        help="Override Windows auto-discovery with one known FL Studio version.",
+    )
+    snapshot_parser.add_argument(
+        "--inventory-cache",
+        default=str(
+            default_capability_inventory_cache_path(),
+        ),
+        help="Local metadata inventory cache path.",
+    )
+    snapshot_parser.add_argument(
+        "--no-inventory-cache",
+        action="store_true",
+        help="Disable persistent inventory cache reuse for this capture.",
+    )
+    snapshot_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Bypass a fresh metadata cache and complete a new inventory scan.",
+    )
+    snapshot_parser.add_argument(
+        "--plugin-root",
+        action="append",
+        default=[],
+        help="Custom plugin root to scan for every supported format. May be specified multiple times.",
+    )
+    snapshot_parser.add_argument(
+        "--vst2-root",
+        action="append",
+        default=[],
+        help="VST2 DLL root directory to scan. May be specified multiple times.",
+    )
+    snapshot_parser.add_argument(
+        "--scan-default-vst2-roots",
+        action=BooleanOptionalAction,
+        default=os.name == "nt",
+        help="Scan common Windows VST2 roots in addition to explicit roots.",
+    )
+    snapshot_parser.add_argument(
+        "--vst3-root",
+        action="append",
+        default=[],
+        help="VST3 root directory to scan. May be specified multiple times.",
+    )
+    snapshot_parser.add_argument(
+        "--scan-default-vst3-roots",
+        action=BooleanOptionalAction,
+        default=os.name == "nt",
+        help="Scan official Windows VST3 roots in addition to explicit roots.",
+    )
+    snapshot_parser.add_argument(
+        "--probe-vst3-hosts",
+        action=BooleanOptionalAction,
+        default=False,
+        help="Opt in to isolated host probes for every discovered VST3 module.",
+    )
+    snapshot_parser.add_argument("--vst3-probe-timeout", type=float, default=5.0, help="Per-module isolated VST3 host probe timeout in seconds.")
+    snapshot_parser.add_argument("--output", help="Optional JSON output path.")

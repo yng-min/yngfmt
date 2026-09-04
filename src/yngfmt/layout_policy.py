@@ -4,9 +4,9 @@ Shared structural and density-based layout policy.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
-from typing import Final
+from typing import Callable, Final
 import ast
 import io
 import tokenize
@@ -20,9 +20,7 @@ DENSE_ITEM_LENGTH: Final[int] = 32
 LONG_VALUE_LENGTH: Final[int] = 36
 _INDENT: Final[str] = "    "
 _STRUCTURED_EXPRESSION_TYPES: Final[tuple[type[ast.expr], ...]] = (ast.Call, ast.Dict, ast.DictComp, ast.GeneratorExp, ast.IfExp, ast.Lambda, ast.List, ast.ListComp, ast.Set, ast.SetComp, ast.Tuple)
-_IGNORED_TRAILING_TOKEN_TYPES: Final[frozenset[int]] = frozenset(
-    {tokenize.COMMENT, tokenize.DEDENT, tokenize.INDENT, tokenize.NEWLINE, tokenize.NL},
-)
+_IGNORED_TRAILING_TOKEN_TYPES: Final[frozenset[int]] = frozenset({tokenize.COMMENT, tokenize.DEDENT, tokenize.INDENT, tokenize.NEWLINE, tokenize.NL})
 
 
 class LayoutKind(StrEnum):
@@ -56,8 +54,7 @@ class LayoutItem:
     value_length: int
     name_length: int | None
     is_named: bool
-    is_multiline: bool
-    has_nested_structure: bool
+    has_expanded_child: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,18 +91,14 @@ class _LayoutTarget:
 
 def _character_column(line: str, byte_column: int) -> int:
     prefix: bytes = line.encode("utf-8")[:byte_column]
-    return len(
-        prefix.decode("utf-8"),
-    )
+    return len(prefix.decode("utf-8"))
 
 
 def _line_offsets(source: str) -> tuple[list[str], list[int]]:
     lines: list[str] = source.splitlines(keepends=True)
     offsets: list[int] = [0]
     for line in lines:
-        offsets.append(
-            offsets[-1] + len(line),
-        )
+        offsets.append(offsets[-1] + len(line))
     return lines, offsets
 
 
@@ -121,9 +114,7 @@ def _source_tokens(source: str, offsets: list[int]) -> list[_SourceToken]:
             start_offset=_position_offset(offsets=offsets, position=token.start),
             end_offset=_position_offset(offsets=offsets, position=token.end),
         )
-        for token in tokenize.generate_tokens(
-            io.StringIO(source).readline,
-        )
+        for token in tokenize.generate_tokens(io.StringIO(source).readline)
     ]
 
 
@@ -158,14 +149,8 @@ def _normalized_node_text(source: str, lines: list[str], offsets: list[int], nod
     continuation_lines: list[str] = [line for line in segment_lines[1:] if line.strip()]
     if not continuation_lines:
         return segment.strip()
-    continuation_indent: int = min(len(line) - len(
-        line.lstrip(
-            " " + chr(9),
-        ),
-    ) for line in continuation_lines)
-    normalized_lines: list[str] = [
-        segment_lines[0].strip(),
-    ]
+    continuation_indent: int = min(len(line) - len(line.lstrip(" " + chr(9))) for line in continuation_lines)
+    normalized_lines: list[str] = [segment_lines[0].strip()]
     normalized_lines.extend(
         line[continuation_indent:].rstrip()
         if line.strip()
@@ -178,25 +163,14 @@ def _normalized_node_text(source: str, lines: list[str], offsets: list[int], nod
 def _contains_comment(segment: str) -> bool:
     return any(
         token.type == tokenize.COMMENT
-        for token in tokenize.generate_tokens(
-            io.StringIO(segment).readline,
-        )
+        for token in tokenize.generate_tokens(io.StringIO(segment).readline)
     )
 
 
 def _contains_multiline_string(segment: str) -> bool:
     return any(
         token.type == tokenize.STRING and ("\n" in token.string or "\r" in token.string)
-        for token in tokenize.generate_tokens(
-            io.StringIO(segment).readline,
-        )
-    )
-
-
-def _has_nested_structure(node: ast.expr) -> bool:
-    return any(
-        isinstance(descendant, _STRUCTURED_EXPRESSION_TYPES)
-        for descendant in ast.walk(node)
+        for token in tokenize.generate_tokens(io.StringIO(segment).readline)
     )
 
 
@@ -206,28 +180,26 @@ def _layout_item(
     value_length: int | None = None,
     name_length: int | None = None,
     is_named: bool = False,
-    has_nested_structure: bool = False,
+    has_expanded_child: bool = False,
 ) -> LayoutItem:
     return LayoutItem(
         text=text,
-        rendered_length=len(
-            text.replace("\n", ""),
-        ),
+        rendered_length=len(text.replace("\n", "")),
         value_length=len(text) if value_length is None else value_length,
         name_length=name_length,
         is_named=is_named,
-        is_multiline="\n" in text or "\r" in text,
-        has_nested_structure=has_nested_structure,
+        has_expanded_child=has_expanded_child,
     )
 
 
 def _unpacking_item_text(prefix: str, value_text: str, node: ast.expr) -> str:
-    if isinstance(
-        node,
-        (ast.IfExp, ast.Lambda, ast.NamedExpr),
-    ):
+    if isinstance(node, (ast.IfExp, ast.Lambda, ast.NamedExpr)):
         return f"{prefix}({value_text})"
     return f"{prefix}{value_text}"
+
+
+def _requires_expanded_layout(source: str, lines: list[str], offsets: list[int], node: ast.expr) -> bool:
+    return _expression_layout(source=source, lines=lines, offsets=offsets, node=node) == LayoutStyle.EXPANDED
 
 
 def _call_items(source: str, lines: list[str], offsets: list[int], node: ast.Call) -> tuple[LayoutItem, ...] | None:
@@ -237,13 +209,7 @@ def _call_items(source: str, lines: list[str], offsets: list[int], node: ast.Cal
             argument_text: str | None = _normalized_node_text(source, lines, offsets, argument)
             if argument_text is None:
                 return None
-            items.append(
-                _layout_item(
-                    argument_text,
-                    value_length=len(argument_text) - 1,
-                    has_nested_structure=True,
-                ),
-            )
+            items.append(_layout_item(argument_text, value_length=len(argument_text) - 1, has_expanded_child=True))
             continue
 
         argument_text: str | None = _normalized_node_text(source, lines, offsets, argument)
@@ -252,10 +218,8 @@ def _call_items(source: str, lines: list[str], offsets: list[int], node: ast.Cal
         items.append(
             _layout_item(
                 argument_text,
-                value_length=len(
-                    argument_text.replace("\n", ""),
-                ),
-                has_nested_structure=_has_nested_structure(node=argument),
+                value_length=len(argument_text.replace("\n", "")),
+                has_expanded_child=_requires_expanded_layout(source=source, lines=lines, offsets=offsets, node=argument),
             ),
         )
 
@@ -264,25 +228,17 @@ def _call_items(source: str, lines: list[str], offsets: list[int], node: ast.Cal
         if value_text is None:
             return None
         if keyword.arg is None:
-            items.append(
-                _layout_item(
-                    _unpacking_item_text(prefix="**", value_text=value_text, node=keyword.value),
-                    value_length=len(value_text),
-                    has_nested_structure=True,
-                ),
-            )
+            items.append(_layout_item(_unpacking_item_text(prefix="**", value_text=value_text, node=keyword.value), value_length=len(value_text), has_expanded_child=True))
             continue
 
         item_text: str = f"{keyword.arg}={value_text}"
         items.append(
             _layout_item(
                 item_text,
-                value_length=len(
-                    value_text.replace("\n", ""),
-                ),
+                value_length=len(value_text.replace("\n", "")),
                 name_length=len(keyword.arg),
                 is_named=True,
-                has_nested_structure=_has_nested_structure(node=keyword.value),
+                has_expanded_child=_requires_expanded_layout(source=source, lines=lines, offsets=offsets, node=keyword.value),
             ),
         )
     return tuple(items)
@@ -305,7 +261,7 @@ def _parameter_item(
         text = f"{text}: {annotation_text}"
         value_parts.append(annotation_text)
 
-    has_nested_structure: bool = False
+    has_expanded_child: bool = False
     if default is not None:
         default_text: str | None = _normalized_node_text(source, lines, offsets, default)
         if default_text is None:
@@ -313,18 +269,10 @@ def _parameter_item(
         separator: str = " = " if parameter.annotation is not None else "="
         text = f"{text}{separator}{default_text}"
         value_parts.append(default_text)
-        has_nested_structure = _has_nested_structure(node=default)
+        has_expanded_child = _requires_expanded_layout(source=source, lines=lines, offsets=offsets, node=default)
 
-    value_length: int = sum(len(
-        part.replace("\n", ""),
-    ) for part in value_parts)
-    return _layout_item(
-        text,
-        value_length=value_length,
-        name_length=len(parameter.arg),
-        is_named=True,
-        has_nested_structure=has_nested_structure,
-    )
+    value_length: int = sum(len(part.replace("\n", "")) for part in value_parts)
+    return _layout_item(text, value_length=value_length, name_length=len(parameter.arg), is_named=True, has_expanded_child=has_expanded_child)
 
 
 def _function_items(source: str, lines: list[str], offsets: list[int], node: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[LayoutItem, ...] | None:
@@ -346,9 +294,7 @@ def _function_items(source: str, lines: list[str], offsets: list[int], node: ast
             return None
         items.append(item)
         if node.args.posonlyargs and index + 1 == len(node.args.posonlyargs):
-            items.append(
-                _layout_item("/"),
-            )
+            items.append(_layout_item("/"))
 
     if node.args.vararg is not None:
         item = _parameter_item(source, lines, offsets, node.args.vararg, None, prefix="*")
@@ -356,9 +302,7 @@ def _function_items(source: str, lines: list[str], offsets: list[int], node: ast
             return None
         items.append(item)
     elif node.args.kwonlyargs:
-        items.append(
-            _layout_item("*"),
-        )
+        items.append(_layout_item("*"))
 
     for parameter, default in zip(node.args.kwonlyargs, node.args.kw_defaults):
         item = _parameter_item(source, lines, offsets, parameter, default)
@@ -381,13 +325,7 @@ def _dictionary_items(source: str, lines: list[str], offsets: list[int], node: a
         if value_text is None:
             return None
         if key is None:
-            items.append(
-                _layout_item(
-                    _unpacking_item_text(prefix="**", value_text=value_text, node=value),
-                    value_length=len(value_text),
-                    has_nested_structure=True,
-                ),
-            )
+            items.append(_layout_item(_unpacking_item_text(prefix="**", value_text=value_text, node=value), value_length=len(value_text), has_expanded_child=True))
             continue
 
         key_text: str | None = _normalized_node_text(source, lines, offsets, key)
@@ -397,13 +335,11 @@ def _dictionary_items(source: str, lines: list[str], offsets: list[int], node: a
         items.append(
             _layout_item(
                 item_text,
-                value_length=len(
-                    value_text.replace("\n", ""),
-                ),
+                value_length=len(value_text.replace("\n", "")),
                 name_length=len(key_text),
                 is_named=True,
-                has_nested_structure=_has_nested_structure(node=key)
-                or _has_nested_structure(node=value),
+                has_expanded_child=_requires_expanded_layout(source=source, lines=lines, offsets=offsets, node=key)
+                or _requires_expanded_layout(source=source, lines=lines, offsets=offsets, node=value),
             ),
         )
     return tuple(items)
@@ -416,13 +352,7 @@ def _sequence_items(source: str, lines: list[str], offsets: list[int], node: ast
             element_text: str | None = _normalized_node_text(source, lines, offsets, element)
             if element_text is None:
                 return None
-            items.append(
-                _layout_item(
-                    element_text,
-                    value_length=len(element_text) - 1,
-                    has_nested_structure=True,
-                ),
-            )
+            items.append(_layout_item(element_text, value_length=len(element_text) - 1, has_expanded_child=True))
             continue
 
         element_text: str | None = _normalized_node_text(source, lines, offsets, element)
@@ -431,13 +361,67 @@ def _sequence_items(source: str, lines: list[str], offsets: list[int], node: ast
         items.append(
             _layout_item(
                 element_text,
-                value_length=len(
-                    element_text.replace("\n", ""),
-                ),
-                has_nested_structure=_has_nested_structure(node=element),
+                value_length=len(element_text.replace("\n", "")),
+                has_expanded_child=_requires_expanded_layout(source=source, lines=lines, offsets=offsets, node=element),
             ),
         )
     return tuple(items)
+
+
+def _expression_layout(source: str, lines: list[str], offsets: list[int], node: ast.expr) -> LayoutStyle:
+    text: str | None = _normalized_node_text(source=source, lines=lines, offsets=offsets, node=node)
+    if text is None:
+        return LayoutStyle.PRESERVE
+    if _contains_comment(segment=text) or _contains_multiline_string(segment=text):
+        return LayoutStyle.PRESERVE
+
+    kind: LayoutKind | None = None
+    items: tuple[LayoutItem, ...] | None = None
+    prefix_length: int = 0
+    if isinstance(node, ast.Call):
+        kind = LayoutKind.CALL
+        items = _call_items(source=source, lines=lines, offsets=offsets, node=node)
+        function_text: str | None = _normalized_node_text(source=source, lines=lines, offsets=offsets, node=node.func)
+        if function_text is None:
+            return LayoutStyle.PRESERVE
+        prefix_length = len(function_text.replace("\n", "").replace("\r", ""))
+    elif isinstance(node, ast.Dict):
+        kind = LayoutKind.DICTIONARY
+        items = _dictionary_items(source=source, lines=lines, offsets=offsets, node=node)
+    elif isinstance(node, ast.List):
+        kind = LayoutKind.LIST
+        items = _sequence_items(source=source, lines=lines, offsets=offsets, node=node)
+    elif isinstance(node, ast.Set):
+        kind = LayoutKind.SET
+        items = _sequence_items(source=source, lines=lines, offsets=offsets, node=node)
+    elif isinstance(node, ast.Tuple):
+        kind = LayoutKind.TUPLE
+        items = _sequence_items(source=source, lines=lines, offsets=offsets, node=node)
+
+    if kind is not None:
+        if items is None:
+            return LayoutStyle.PRESERVE
+        compact_length: int = prefix_length + len(_compact_delimiters(kind=kind, items=items))
+        return decide_layout(items=items, compact_length=compact_length)
+
+    if isinstance(node, _STRUCTURED_EXPRESSION_TYPES):
+        return LayoutStyle.EXPANDED
+    if "\n" in text or "\r" in text:
+        return LayoutStyle.EXPANDED
+    if any(
+        _requires_expanded_layout(source=source, lines=lines, offsets=offsets, node=child)
+        for child in ast.iter_child_nodes(node)
+        if isinstance(child, ast.expr)
+    ):
+        return LayoutStyle.EXPANDED
+    return LayoutStyle.COMPACT
+
+
+def _strict_majority(items: tuple[LayoutItem, ...], predicate: Callable[[LayoutItem], bool]) -> bool:
+    if len(items) < 3:
+        return False
+    matching: int = sum(predicate(item) for item in items)
+    return matching * 2 > len(items)
 
 
 def decide_layout(items: tuple[LayoutItem, ...], compact_length: int, *, preserve: bool = False) -> LayoutStyle:
@@ -448,7 +432,7 @@ def decide_layout(items: tuple[LayoutItem, ...], compact_length: int, *, preserv
         return LayoutStyle.PRESERVE
     if not items:
         return LayoutStyle.COMPACT
-    if any(item.has_nested_structure or item.is_multiline for item in items):
+    if any(item.has_expanded_child for item in items):
         return LayoutStyle.EXPANDED
     if compact_length > COMPACT_SOFT_LIMIT:
         return LayoutStyle.EXPANDED
@@ -456,9 +440,15 @@ def decide_layout(items: tuple[LayoutItem, ...], compact_length: int, *, preserv
     named_items: tuple[LayoutItem, ...] = tuple(item for item in items if item.is_named)
     if len(named_items) >= NAMED_ITEM_LIMIT:
         return LayoutStyle.EXPANDED
-    if any((item.name_length or 0) >= LONG_NAME_LIMIT for item in named_items):
+    if _strict_majority(
+        named_items,
+        lambda item: (item.name_length or 0) >= LONG_NAME_LIMIT,
+    ):
         return LayoutStyle.EXPANDED
-    if any(item.rendered_length >= LONG_NAMED_ITEM_LIMIT for item in named_items):
+    if _strict_majority(
+        named_items,
+        lambda item: item.rendered_length >= LONG_NAMED_ITEM_LIMIT,
+    ):
         return LayoutStyle.EXPANDED
     if sum(item.rendered_length >= DENSE_ITEM_LENGTH for item in items) >= 2:
         return LayoutStyle.EXPANDED
@@ -475,10 +465,7 @@ def _matching_closer(tokens: list[_SourceToken], opener_index: int) -> int | Non
         return None
 
     stack: list[str] = [expected_closer]
-    for index in range(
-        opener_index + 1,
-        len(tokens),
-    ):
+    for index in range(opener_index + 1, len(tokens)):
         token_string: str = tokens[index].token.string
         if token_string in pairs:
             stack.append(pairs[token_string])
@@ -558,10 +545,7 @@ def _function_delimiters(tokens: list[_SourceToken], node: ast.FunctionDef | ast
     if name_index is None:
         return None
 
-    for index in range(
-        name_index + 1,
-        len(tokens),
-    ):
+    for index in range(name_index + 1, len(tokens)):
         if tokens[index].token.string != "(":
             continue
         closer_index: int | None = _matching_closer(tokens=tokens, opener_index=index)
@@ -626,9 +610,7 @@ def _target(
     )
     expected_style: LayoutStyle = decide_layout(items=items, compact_length=compact_length, preserve=preserve)
     line_text: str = lines[opener.token.start[0] - 1]
-    base_indent: str = line_text[: len(line_text) - len(
-        line_text.lstrip(" \t"),
-    )]
+    base_indent: str = line_text[: len(line_text) - len(line_text.lstrip(" \t"))]
     return _LayoutTarget(
         context=LayoutContext(
             kind=kind,
@@ -648,11 +630,56 @@ def _target(
     )
 
 
+def _call_callee_key(node: ast.Call) -> str:
+    return ast.dump(node.func, annotate_fields=True, include_attributes=False)
+
+
+def _call_cohorts(tree: ast.Module) -> tuple[tuple[ast.Call, ...], ...]:
+    cohorts: list[tuple[ast.Call, ...]] = []
+    for parent in ast.walk(tree):
+        for _, field in ast.iter_fields(parent):
+            if not isinstance(field, list) or not field or not all(isinstance(item, ast.stmt) for item in field):
+                continue
+
+            current: list[ast.Call] = []
+            current_key: str | None = None
+            for statement in field:
+                call: ast.Call | None = (
+                    statement.value
+                    if isinstance(statement, ast.Expr) and isinstance(statement.value, ast.Call)
+                    else None
+                )
+                key: str | None = _call_callee_key(node=call) if call is not None else None
+                if call is not None and key == current_key:
+                    current.append(call)
+                    continue
+                if len(current) >= 2:
+                    cohorts.append(tuple(current))
+                current = [call] if call is not None else []
+                current_key = key
+            if len(current) >= 2:
+                cohorts.append(tuple(current))
+    return tuple(cohorts)
+
+
+def _promote_call_cohorts(tree: ast.Module, targets: list[_LayoutTarget], target_indices: dict[ast.Call, int]) -> None:
+    for cohort in _call_cohorts(tree=tree):
+        indices: list[int] = [target_indices[call] for call in cohort if call in target_indices]
+        if not any(targets[index].context.expected_style == LayoutStyle.EXPANDED for index in indices):
+            continue
+        for index in indices:
+            context: LayoutContext = targets[index].context
+            if context.expected_style != LayoutStyle.COMPACT:
+                continue
+            targets[index] = replace(targets[index], context=replace(context, expected_style=LayoutStyle.EXPANDED))
+
+
 def _layout_targets(source: str) -> list[_LayoutTarget]:
     tree: ast.Module = ast.parse(source, type_comments=True)
     lines, offsets = _line_offsets(source=source)
     tokens: list[_SourceToken] = _source_tokens(source=source, offsets=offsets)
     targets: list[_LayoutTarget] = []
+    target_indices: dict[ast.Call, int] = {}
 
     for node in ast.walk(tree):
         kind: LayoutKind
@@ -663,10 +690,7 @@ def _layout_targets(source: str) -> list[_LayoutTarget]:
             kind = LayoutKind.CALL
             items = _call_items(source, lines, offsets, node)
             delimiters = _expression_delimiters(source, lines, offsets, tokens, node)
-        elif isinstance(
-            node,
-            (ast.FunctionDef, ast.AsyncFunctionDef),
-        ):
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             kind = LayoutKind.FUNCTION_DEFINITION
             items = _function_items(source, lines, offsets, node)
             delimiters = _function_delimiters(tokens=tokens, node=node)
@@ -691,16 +715,18 @@ def _layout_targets(source: str) -> list[_LayoutTarget]:
 
         if items is None or delimiters is None:
             continue
-        targets.append(
-            _target(
-                source=source,
-                lines=lines,
-                tokens=tokens,
-                kind=kind,
-                items=items,
-                delimiter_indices=delimiters,
-            ),
+        target: _LayoutTarget = _target(
+            source=source,
+            lines=lines,
+            tokens=tokens,
+            kind=kind,
+            items=items,
+            delimiter_indices=delimiters,
         )
+        targets.append(target)
+        if isinstance(node, ast.Call):
+            target_indices[node] = len(targets) - 1
+    _promote_call_cohorts(tree=tree, targets=targets, target_indices=target_indices)
     return targets
 
 
@@ -719,9 +745,7 @@ def _expanded_delimiters(source: str, target: _LayoutTarget) -> str:
         item_lines: list[str] = item.text.splitlines()
         indented_lines: list[str] = [f"{item_indent}{line}" for line in item_lines]
         indented_lines[-1] = f"{indented_lines[-1]},"
-        rendered_items.append(
-            newline.join(indented_lines),
-        )
+        rendered_items.append(newline.join(indented_lines))
     body: str = newline.join(rendered_items)
     return (
         f"{target.opener}{newline}"
@@ -755,9 +779,7 @@ def normalize_layout(source: str) -> str:
             current_segment: str = current_source[target.start_offset:target.end_offset]
             if replacement == current_segment:
                 continue
-            candidates.append(
-                (target.start_offset, target.end_offset, replacement),
-            )
+            candidates.append((target.start_offset, target.end_offset, replacement))
 
         if not candidates:
             return current_source

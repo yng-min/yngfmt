@@ -308,7 +308,7 @@ Function call argument, function definition parameter, dictionary entry, list/tu
 판정 순서는 다음과 같다.
 
 1. comment와 multi-line string을 안전하게 보존할 수 있는가
-2. nested call, collection/comprehension, conditional, lambda, unpacking처럼 item 자체의 구조가 있는가
+2. nested child의 canonical layout이 실제로 multi-line인가, 또는 unpacking처럼 독립 구조를 드러내야 하는가
 3. named item의 개수와 이름 길이가 높은가
 4. item 전체 또는 value가 여러 개의 긴 단위로 밀집되어 있는가
 5. compact 결과가 200자 soft ceiling을 넘는가
@@ -317,15 +317,16 @@ Named item은 function definition parameter, keyword argument, dictionary entry�
 
 Formatter가 적용하는 deterministic threshold는 다음과 같다.
 
-- nested structure 또는 unpacking이 하나라도 있으면 multi-line
+- nested call/collection은 자신의 공통 policy 결과가 multi-line일 때만 parent도 multi-line
+- comprehension, conditional, lambda, unpacking처럼 독립 구조를 드러내야 하는 item은 multi-line
 - named item이 5개 이상이면 multi-line
-- named item의 이름이 24자 이상이면 multi-line
-- `name=value` 또는 이에 대응하는 named item 전체가 64자 이상이면 multi-line
+- named item이 3개 이상이고 이름이 24자 이상인 item이 과반수이면 multi-line
+- named item이 3개 이상이고 `name=value` 또는 이에 대응하는 named item 전체가 64자 이상인 item이 과반수이면 multi-line
 - 32자 이상인 item이 2개 이상이면 multi-line
 - 36자 이상인 value가 2개 이상이면 multi-line
 - 현재 line의 prefix와 suffix를 포함한 compact 결과가 200자를 넘으면 multi-line
 
-위 조건에 해당하지 않는 구조는 single-line을 canonical shape으로 사용한다. 따라서 짧은 positional value가 여러 개인 call/sequence는 compact할 수 있고, 긴 positional string 하나만 있는 경우도 200자 이하라면 compact할 수 있다.
+위 조건에 해당하지 않는 구조는 single-line을 canonical shape으로 사용한다. 따라서 짧은 positional value가 여러 개인 call/sequence는 compact할 수 있고, 긴 name/item/value가 하나뿐인 경우도 200자 이하라면 compact할 수 있다.
 
 Comment 또는 multi-line string이 포함된 container는 정보 손실 없는 자동 정규화가 확실하지 않으므로 현재 shape을 보존한다. Multi-line container의 각 top-level item에는 trailing comma를 사용하고 single-line container에는 trailing comma를 사용하지 않는다.
 
@@ -335,7 +336,7 @@ Comment 또는 multi-line string이 포함된 container는 정보 손실 없는 
 process(first + second + third, lower <= value < upper)
 ```
 
-유일한 인자가 nested call, collection literal, comprehension, conditional expression처럼 자체적인 구조를 가지면 multi-line 형태를 사용할 수 있다.
+Nested call이나 collection literal이 자신의 density 때문에 multi-line이면 parent도 multi-line을 사용한다. 반면 nested child가 공통 policy상 compact이면 `default=str(default_path())`나 `default=[]` 같은 표현은 parent를 불필요하게 펼치지 않는다.
 
 ```python
 result = service.process(
@@ -564,7 +565,7 @@ validator.check_values(actual_value, expected_value, offset + tolerance)
 process(first + second + third, lower <= value < upper)
 ```
 
-반대로 nested call, collection/comprehension, conditional, lambda, `*args`/`**kwargs`처럼 실제 내부 구조가 있으면 multi-line을 사용한다.
+Nested call과 collection은 그 존재 자체가 아니라 child의 canonical layout을 재귀적으로 판정한다. Child가 compact이면 parent도 다른 density 조건이 없는 한 compact할 수 있고, child가 multi-line이면 parent도 multi-line을 사용한다. Comprehension, conditional, lambda, `*args`/`**kwargs`처럼 독립적인 구조를 드러내야 하는 표현은 multi-line을 사용한다.
 
 ```python
 process(
@@ -587,19 +588,25 @@ return (
 
 ### 4.8.2 Homogeneous Call Run
 
-같은 receiver에서 같은 method family가 다른 statement 없이 연속되면 하나의 homogeneous call run으로 취급한다.
+같은 callee가 다른 statement 없이 연속되면 하나의 homogeneous call run으로 취급한다.
 
-Homogeneous call run도 각 call에 공통 layout policy를 그대로 적용한다. 과거처럼 run 내부의 nested call을 예외적으로 compact하거나 별도의 200자 guard를 사용하지 않는다.
+먼저 각 call에 공통 layout policy를 독립적으로 적용한다. 그 결과 run 안에 multi-line이 필요한 call이 하나라도 있으면 local cohort consistency를 위해 compact call을 multi-line으로 승격할 수 있다.
 
-같은 구조와 density를 가진 call은 같은 policy 결과를 얻으므로 별도 run heuristic 없이 shape이 일관된다. 구조나 density가 실제로 다른 call을 시각적 일관성만을 이유로 강제로 접거나 펼치지 않는다.
+이 보조 규칙은 단방향이다. 구조나 density 때문에 multi-line인 call을 compact로 내리지 않으며, comment 또는 multi-line string 때문에 현재 shape을 보존하는 call도 덮어쓰지 않는다. 다른 callee나 중간의 다른 statement는 cohort 경계가 된다.
 
 ```python
-validator.check_value(actual_value)
-validator.check_range(
-    actual_value,
-    build_range(minimum=0, maximum=10),
+config.add_argument(
+    "--input",
+    help="Input path.",
 )
-validator.check_state(current_state)
+config.add_argument(
+    "--mode",
+    alpha=1,
+    beta=2,
+    gamma=3,
+    delta=4,
+    epsilon=5,
+)
 ```
 
 > **운영 기준**

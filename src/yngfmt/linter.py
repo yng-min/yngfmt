@@ -46,19 +46,8 @@ def load_result_config(pyproject_path: Path | None) -> ResultConfig:
     if pyproject_path is None or not pyproject_path.is_file():
         return ResultConfig(enabled=False)
 
-    data = tomllib.loads(
-        pyproject_path.read_text(encoding="utf-8"),
-    )
-    settings = data.get(
-        "tool",
-        {},
-    ).get(
-        "yngfmt",
-        {},
-    ).get(
-        "result-object",
-        {},
-    )
+    data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+    settings = data.get("tool", {}).get("yngfmt", {}).get("result-object", {})
     if not settings:
         return ResultConfig(enabled=False)
 
@@ -150,9 +139,7 @@ class StyleGuideVisitor(ast.NodeVisitor):
         if not class_name or not _PASCAL_CASE_PATTERN.fullmatch(class_name):
             self.add(node=node, code="YNG201", message="class name must use PascalCase")
 
-        self._callback_prefix_stack.append(
-            _framework_callback_prefixes(node=node),
-        )
+        self._callback_prefix_stack.append(_framework_callback_prefixes(node=node))
         self.generic_visit(node)
         self._callback_prefix_stack.pop()
 
@@ -218,10 +205,7 @@ def _annotation_name(node: ast.expr | None) -> str | None:
 
 def _string_prefix_and_quote(token_value: str) -> tuple[str, str] | None:
     match: re.Match[str] | None = re.match(r"(?i)^([rubf]*)(\"\"\"|'{3}|\"|')", token_value)
-    return None if match is None else (
-        match.group(1),
-        match.group(2),
-    )
+    return None if match is None else (match.group(1), match.group(2))
 
 
 def _is_docstring_statement(node: ast.stmt) -> bool:
@@ -237,9 +221,7 @@ def _docstring_positions(tree: ast.AST) -> set[tuple[int, int]]:
     for node in ast.walk(tree):
         body = getattr(node, "body", None)
         if isinstance(body, list) and body and _is_docstring_statement(body[0]):
-            positions.add(
-                (body[0].value.lineno, body[0].value.col_offset),
-            )
+            positions.add((body[0].value.lineno, body[0].value.col_offset))
     return positions
 
 
@@ -272,9 +254,7 @@ def _check_tokens(source: str, path: Path, tree: ast.AST) -> list[Diagnostic]:
     docstrings: set[tuple[int, int]] = _docstring_positions(tree)
     subscripts: set[tuple[int, int]] = _subscript_string_positions(tree)
 
-    for token in tokenize.generate_tokens(
-        io.StringIO(source).readline,
-    ):
+    for token in tokenize.generate_tokens(io.StringIO(source).readline):
         if token.type != tokenize.STRING:
             continue
         parsed: tuple[str, str] | None = _string_prefix_and_quote(token.string)
@@ -304,10 +284,7 @@ def _check_tokens(source: str, path: Path, tree: ast.AST) -> list[Diagnostic]:
                 ),
             )
 
-    for line_number, line in enumerate(
-        source.splitlines(),
-        start=1,
-    ):
+    for line_number, line in enumerate(source.splitlines(), start=1):
         if "\t" in line:
             diagnostics.append(
                 Diagnostic(
@@ -349,11 +326,7 @@ def _check_subscript_quotes(source: str, path: Path, tree: ast.AST) -> list[Diag
 
 
 def _blank_lines_between(previous: ast.AST, current: ast.AST) -> int:
-    previous_end: int = getattr(
-        previous,
-        "end_lineno",
-        getattr(previous, "lineno", 1),
-    )
+    previous_end: int = getattr(previous, "end_lineno", getattr(previous, "lineno", 1))
     current_start: int = getattr(current, "lineno", previous_end + 1)
     return max(0, current_start - previous_end - 1)
 
@@ -381,19 +354,13 @@ def _check_docstring_layout(tree: ast.Module, path: Path) -> list[Diagnostic]:
             )
 
     for node in ast.walk(tree):
-        if not isinstance(
-            node,
-            (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef),
-        ):
+        if not isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         if not node.body or not _is_docstring_statement(node.body[0]) or len(node.body) == 1:
             continue
 
         next_statement: ast.stmt = node.body[1]
-        if isinstance(node, ast.ClassDef) and not isinstance(
-            next_statement,
-            (ast.FunctionDef, ast.AsyncFunctionDef),
-        ):
+        if isinstance(node, ast.ClassDef) and not isinstance(next_statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         if _blank_lines_between(node.body[0], next_statement) == 0:
             continue
@@ -413,13 +380,9 @@ def _check_docstring_layout(tree: ast.Module, path: Path) -> list[Diagnostic]:
 
 
 def _definition_header_end_line(source: str, node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef) -> int:
-    fragment: str = "".join(
-        source.splitlines(keepends=True)[node.lineno - 1 :],
-    )
+    fragment: str = "".join(source.splitlines(keepends=True)[node.lineno - 1 :])
     depth: int = 0
-    for token in tokenize.generate_tokens(
-        io.StringIO(fragment).readline,
-    ):
+    for token in tokenize.generate_tokens(io.StringIO(fragment).readline):
         if token.type != tokenize.OP:
             continue
         if token.string in {"(", "[", "{"}:
@@ -457,10 +420,7 @@ def _check_definition_spacing(source: str, tree: ast.Module, path: Path) -> list
             )
 
     for node in ast.walk(tree):
-        if isinstance(
-            node,
-            (ast.FunctionDef, ast.AsyncFunctionDef),
-        ) and node.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.body:
             header_end: int = _definition_header_end_line(source=source, node=node)
             if node.body[0].lineno - header_end - 1 > 0:
                 diagnostics.append(
@@ -479,10 +439,7 @@ def _check_definition_spacing(source: str, tree: ast.Module, path: Path) -> list
         methods: list[ast.FunctionDef | ast.AsyncFunctionDef] = [
             node
             for node in body[start:]
-            if isinstance(
-                node,
-                (ast.FunctionDef, ast.AsyncFunctionDef),
-            )
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
         ]
         for previous, current in zip(methods, methods[1:]):
             previous_end: int = previous.end_lineno or previous.lineno
@@ -513,10 +470,7 @@ def _is_call_statement(node: ast.stmt) -> bool:
 def _check_wrapper_and_return_spacing(tree: ast.Module, path: Path) -> list[Diagnostic]:
     diagnostics: list[Diagnostic] = []
     for node in ast.walk(tree):
-        if not isinstance(
-            node,
-            (ast.FunctionDef, ast.AsyncFunctionDef),
-        ):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         body: list[ast.stmt] = _body_without_docstring(node=node)
         if (
@@ -604,26 +558,17 @@ def _assignment_dicts(function: ast.FunctionDef | ast.AsyncFunctionDef) -> dict[
                 assignments[name] = node.value
             elif node.value is not None:
                 invalidated.add(name)
-        elif isinstance(
-            node,
-            (ast.AugAssign, ast.NamedExpr),
-        ) and isinstance(node.target, ast.Name):
+        elif isinstance(node, (ast.AugAssign, ast.NamedExpr)) and isinstance(node.target, ast.Name):
             invalidated.add(node.target.id)
     return {name: value for name, value in assignments.items() if name not in invalidated}
 
 
 def _result_candidate(keys: set[str], config: ResultConfig, forced: bool = False) -> bool:
-    return forced or bool(
-        keys & set(config.marker_fields),
-    ) or bool(
-        keys & set(config.aliases),
-    )
+    return forced or bool(keys & set(config.marker_fields)) or bool(keys & set(config.aliases))
 
 
 def _validate_result_keys(keys: set[str], node: ast.stmt, path: Path, config: ResultConfig) -> list[Diagnostic]:
-    aliases: list[str] = sorted(
-        keys & set(config.aliases),
-    )
+    aliases: list[str] = sorted(keys & set(config.aliases))
     if aliases:
         return [
             Diagnostic(
@@ -635,9 +580,7 @@ def _validate_result_keys(keys: set[str], node: ast.stmt, path: Path, config: Re
             ),
         ]
 
-    missing: list[str] = sorted(
-        set(config.required_fields) - keys,
-    )
+    missing: list[str] = sorted(set(config.required_fields) - keys)
     if missing:
         return [
             Diagnostic(
@@ -664,22 +607,12 @@ def _check_result_objects(tree: ast.Module, path: Path, config: ResultConfig) ->
             and node.name in config.typed_dict_names
             and _is_typed_dict(node)
         ):
-            diagnostics.extend(
-                _validate_result_keys(
-                    keys=_typed_dict_fields(node),
-                    node=node,
-                    path=path,
-                    config=config,
-                ),
-            )
+            diagnostics.extend(_validate_result_keys(keys=_typed_dict_fields(node), node=node, path=path, config=config))
 
     for function in (
         node
         for node in ast.walk(tree)
-        if isinstance(
-            node,
-            (ast.FunctionDef, ast.AsyncFunctionDef),
-        )
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
     ):
         assigned: dict[str, ast.Dict] = _assignment_dicts(function=function)
         forced: bool = _annotation_name(function.returns) in result_type_names
@@ -699,12 +632,8 @@ def _check_result_objects(tree: ast.Module, path: Path, config: ResultConfig) ->
             keys: set[str] | None = _dictionary_string_keys(dictionary)
             if keys is None or not _result_candidate(keys=keys, config=config, forced=forced):
                 continue
-            diagnostics.extend(
-                _validate_result_keys(keys=keys, node=node, path=path, config=config),
-            )
-            returns.append(
-                (node, keys),
-            )
+            diagnostics.extend(_validate_result_keys(keys=keys, node=node, path=path, config=config))
+            returns.append((node, keys))
 
         if len(
             {frozenset(keys) for _, keys in returns},
@@ -736,9 +665,7 @@ def lint_code(
     try:
         tree: ast.Module = ast.parse(source)
     except SyntaxError as error:
-        return [
-            Diagnostic(path, error.lineno or 1, error.offset or 1, "YNG000", error.msg),
-        ]
+        return [Diagnostic(path, error.lineno or 1, error.offset or 1, "YNG000", error.msg)]
 
     visitor: StyleGuideVisitor = StyleGuideVisitor(path)
     visitor.visit(tree)
@@ -781,9 +708,7 @@ def iter_python_files(paths: Sequence[Path]) -> Iterable[Path]:
         if path.is_file() and path.suffix == ".py":
             yield path
         elif path.is_dir():
-            yield from sorted(
-                path.rglob("*.py"),
-            )
+            yield from sorted(path.rglob("*.py"))
 
 
 def lint_path(
@@ -794,9 +719,4 @@ def lint_path(
     """
     Lint one Python file.
     """
-    return lint_code(
-        source=path.read_text(encoding="utf-8"),
-        path=path,
-        import_config=import_config,
-        result_config=result_config,
-    )
+    return lint_code(source=path.read_text(encoding="utf-8"), path=path, import_config=import_config, result_config=result_config)

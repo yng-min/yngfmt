@@ -102,10 +102,7 @@ def _string_tuple(value: object) -> tuple[str, ...]:
     """
     if isinstance(value, str):
         return (value,)
-    if not isinstance(
-        value,
-        (list, tuple),
-    ):
+    if not isinstance(value, (list, tuple)):
         return ()
     return tuple(item for item in value if isinstance(item, str))
 
@@ -125,34 +122,12 @@ def load_import_config(pyproject_path: Path | None) -> ImportConfig:
     if pyproject_path is None or not pyproject_path.is_file():
         return ImportConfig()
 
-    data: dict[str, object] = tomllib.loads(
-        pyproject_path.read_text(encoding="utf-8"),
-    )
-    tool_settings: dict[str, object] = _mapping(
-        value=data.get(
-            "tool",
-            {},
-        ),
-    )
-    yngfmt_settings: dict[str, object] = _mapping(
-        value=tool_settings.get(
-            "yngfmt",
-            {},
-        ),
-    )
-    settings: dict[str, object] = _mapping(
-        value=yngfmt_settings.get(
-            "imports",
-            {},
-        ),
-    )
+    data: dict[str, object] = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+    tool_settings: dict[str, object] = _mapping(value=data.get("tool", {}))
+    yngfmt_settings: dict[str, object] = _mapping(value=tool_settings.get("yngfmt", {}))
+    settings: dict[str, object] = _mapping(value=yngfmt_settings.get("imports", {}))
     return ImportConfig(
-        first_party=_string_tuple(
-            value=settings.get(
-                "first-party",
-                (),
-            ),
-        ),
+        first_party=_string_tuple(value=settings.get("first-party", ())),
         language_segment=_string_setting(settings=settings, key="language-segment", default="language"),
         config_segment=_string_setting(settings=settings, key="config-segment", default="config"),
     )
@@ -194,9 +169,7 @@ def _kind(node: ast.Import | ast.ImportFrom) -> ImportKind:
 
 
 def _depth(node: ast.Import | ast.ImportFrom) -> int:
-    return len(
-        _module_parts(node=node),
-    )
+    return len(_module_parts(node=node))
 
 
 def _segment_name(node: ast.Import | ast.ImportFrom, config: ImportConfig) -> str:
@@ -247,10 +220,7 @@ def _top_level_import_nodes(tree: ast.Module) -> list[ast.Import | ast.ImportFro
         start_index = 1
 
     for node in body[start_index:]:
-        if not isinstance(
-            node,
-            (ast.Import, ast.ImportFrom),
-        ):
+        if not isinstance(node, (ast.Import, ast.ImportFrom)):
             break
         nodes.append(node)
     return nodes
@@ -393,17 +363,12 @@ def _render(records: Sequence[ImportRecord], config: ImportConfig) -> str:
 
     parts: list[str] = [records[0].text]
     for previous, current in zip(records, records[1:]):
-        parts.append(
-            _separator(previous=previous, current=current, config=config),
-        )
+        parts.append(_separator(previous=previous, current=current, config=config))
         parts.append(current.text)
     return "".join(parts)
 
 
-def sort_imports(
-    source: str,
-    config: ImportConfig = ImportConfig(),
-) -> str:
+def sort_imports(source: str, config: ImportConfig = ImportConfig()) -> str:
     """
     Sort the leading top-level import section according to the style guide.
     """
@@ -415,12 +380,7 @@ def sort_imports(
     if not nodes:
         return source
 
-    records, first_line, last_line = _records(
-        source=source,
-        nodes=nodes,
-        config=config,
-        protected_lines=_protected_lines(source=source),
-    )
+    records, first_line, last_line = _records(source=source, nodes=nodes, config=config, protected_lines=_protected_lines(source=source))
     sorted_records: list[ImportRecord] = _sort_with_pinned_records(records=records, config=config)
     rendered: str = _render(records=sorted_records, config=config)
 
@@ -431,10 +391,7 @@ def sort_imports(
     return f"{before}{rendered}{suffix}{after}"
 
 
-def check_imports(
-    source: str,
-    config: ImportConfig = ImportConfig(),
-) -> list[ImportIssue]:
+def check_imports(source: str, config: ImportConfig = ImportConfig()) -> list[ImportIssue]:
     """
     Return one diagnostic when the import section differs from canonical output.
     """
@@ -449,11 +406,4 @@ def check_imports(
 
     nodes: list[ast.Import | ast.ImportFrom] = _top_level_import_nodes(tree=tree)
     line: int = nodes[0].lineno if nodes else 1
-    return [
-        ImportIssue(
-            line=line,
-            column=1,
-            code="YNG400",
-            message="import section does not match project import ordering rules",
-        ),
-    ]
+    return [ImportIssue(line=line, column=1, code="YNG400", message="import section does not match project import ordering rules")]

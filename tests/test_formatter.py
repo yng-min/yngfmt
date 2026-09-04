@@ -87,9 +87,7 @@ def test_expands_multiple_long_named_values_by_density() -> None:
         "second=\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\", "
         "third=\"cccccccccccccccccccccccccccccccccccccccc\")\n"
     )
-    assert len(
-        source.rstrip("\n"),
-    ) > 88
+    assert len(source.rstrip("\n")) > 88
     assert format_code(source) == '''result = service.process(
     first="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     second="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -104,16 +102,13 @@ def test_keeps_one_long_positional_value_compact_below_soft_ceiling() -> None:
     assert format_code(source) == source
 
 
-def test_expands_outer_call_and_compacts_sparse_nested_dictionary() -> None:
+def test_compacts_outer_call_with_canonically_compact_nested_dictionary() -> None:
     source: str = '''service.process(options={
     "enabled": True,
     "timeout": 10,
 })
 '''
-    assert format_code(source) == '''service.process(
-    options={ "enabled": True, "timeout": 10 },
-)
-'''
+    assert format_code(source) == "service.process(options={ \"enabled\": True, \"timeout\": 10 })\n"
 
 
 def test_compacts_simple_multiline_call_chain() -> None:
@@ -144,7 +139,7 @@ def test_compacts_broken_attribute_call_chain() -> None:
 '''
 
 
-def test_expands_outer_call_around_compact_nested_call() -> None:
+def test_compacts_outer_call_around_canonically_compact_nested_call() -> None:
     source: str = '''diagnostics.extend(
     _validate_result_keys(
         keys=keys,
@@ -154,13 +149,10 @@ def test_expands_outer_call_around_compact_nested_call() -> None:
     )
 )
 '''
-    assert format_code(source) == '''diagnostics.extend(
-    _validate_result_keys(keys=keys, node=node, path=path, config=config),
-)
-'''
+    assert format_code(source) == "diagnostics.extend(_validate_result_keys(keys=keys, node=node, path=path, config=config))\n"
 
 
-def test_expands_list_around_compact_nested_call() -> None:
+def test_compacts_list_around_canonically_compact_nested_call() -> None:
     source: str = '''def build(path: str) -> list[object]:
     return [
         Diagnostic(
@@ -170,9 +162,7 @@ def test_expands_list_around_compact_nested_call() -> None:
     ]
 '''
     assert format_code(source) == '''def build(path: str) -> list[object]:
-    return [
-        Diagnostic(path=path, code="YNG601"),
-    ]
+    return [Diagnostic(path=path, code="YNG601")]
 '''
 
 

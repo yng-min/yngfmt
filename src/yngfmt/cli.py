@@ -28,21 +28,10 @@ def _python_files(paths: Iterable[Path]) -> list[Path]:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser: argparse.ArgumentParser = argparse.ArgumentParser(
-        prog="yngfmt",
-        description="Format Python code using yngmin's Python Style Guide.",
-    )
+    parser: argparse.ArgumentParser = argparse.ArgumentParser(prog="yngfmt", description="Format Python code using yngmin's Python Style Guide.")
     parser.add_argument("paths", nargs="+", type=Path)
-    parser.add_argument(
-        "--check",
-        action="store_true",
-        help="Do not write files and return a non-zero status when changes are needed.",
-    )
-    parser.add_argument(
-        "--pyproject",
-        type=Path,
-        help="Explicit pyproject.toml path for project import settings.",
-    )
+    parser.add_argument("--check", action="store_true", help="Do not write files and return a non-zero status when changes are needed.")
+    parser.add_argument("--pyproject", type=Path, help="Explicit pyproject.toml path for project import settings.")
     return parser
 
 
@@ -65,13 +54,9 @@ def main() -> int:
             print(f"{action} {path}")
 
     unchanged_count: int = len(files) - len(changed_files)
-    print(
-        f"{len(changed_files)} file(s) changed, {unchanged_count} file(s) left unchanged",
-    )
+    print(f"{len(changed_files)} file(s) changed, {unchanged_count} file(s) left unchanged")
     return 1 if arguments.check and changed_files else 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(
-        main(),
-    )
+    raise SystemExit(main())

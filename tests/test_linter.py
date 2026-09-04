@@ -9,21 +9,11 @@ from yngfmt.formatter import format_code
 from yngfmt.linter import ResultConfig, lint_code
 
 
-def _diagnostics(
-    source: str,
-    result_config: ResultConfig = ResultConfig(),
-):
-    return lint_code(
-        source=source,
-        path=Path("test.py"),
-        result_config=result_config,
-    )
+def _diagnostics(source: str, result_config: ResultConfig = ResultConfig()):
+    return lint_code(source=source, path=Path("test.py"), result_config=result_config)
 
 
-def _codes(
-    source: str,
-    result_config: ResultConfig = ResultConfig(),
-) -> list[str]:
+def _codes(source: str, result_config: ResultConfig = ResultConfig()) -> list[str]:
     return [
         diagnostic.code
         for diagnostic in _diagnostics(source=source, result_config=result_config)
@@ -116,7 +106,7 @@ def test_reports_noncanonical_nested_simple_call() -> None:
         ),
     )
 '''
-    assert _codes(source=source) == ["YNG701"]
+    assert _codes(source=source) == ["YNG701", "YNG701"]
 
 
 def test_reports_outer_comma_and_nested_dictionary_layout() -> None:
@@ -126,7 +116,7 @@ def test_reports_outer_comma_and_nested_dictionary_layout() -> None:
         "timeout": 10,
     })
 '''
-    assert _codes(source=source) == ["YNG702", "YNG705"]
+    assert _codes(source=source) == ["YNG701", "YNG705"]
 
 
 def test_reports_only_nested_dictionary_layout_when_outer_comma_is_valid() -> None:
@@ -136,11 +126,25 @@ def test_reports_only_nested_dictionary_layout_when_outer_comma_is_valid() -> No
         "timeout": 10,
     },)
 '''
-    assert _codes(source=source) == ["YNG705"]
+    assert _codes(source=source) == ["YNG701", "YNG705"]
 
 
 def test_reports_dense_call_that_must_expand() -> None:
     source = "process(alpha=1, beta=2, gamma=3, delta=4, epsilon=5)\n"
+    assert _codes(source=source) == ["YNG705"]
+
+
+def test_reports_compact_call_promoted_by_same_callee_cohort() -> None:
+    source = '''parser.add_argument("--short", help="Short help.")
+parser.add_argument(
+    "--dense",
+    alpha=1,
+    beta=2,
+    gamma=3,
+    delta=4,
+    epsilon=5,
+)
+'''
     assert _codes(source=source) == ["YNG705"]
 
 
@@ -170,9 +174,7 @@ def test_formatter_output_satisfies_shared_layout_linter() -> None:
 ) -> object:
     return process(first, build_value(enabled=True, timeout=10))
 '''
-    assert _codes(
-        source=format_code(source),
-    ) == []
+    assert _codes(source=format_code(source)) == []
 
 
 def test_reports_naming_and_type_annotation_rules() -> None:
@@ -279,9 +281,7 @@ def test_tracks_local_result_dictionary() -> None:
 
 
 def test_reports_result_branch_field_mismatch() -> None:
-    config = ResultConfig(
-        required_fields=("error", "code"),
-    )
+    config = ResultConfig(required_fields=("error", "code"))
     source = '''def execute(ignored: bool) -> dict[str, object]:
     if ignored:
         return { "error": False, "code": "IGNORED" }
@@ -299,9 +299,7 @@ class OperationResult(TypedDict):
     code: str
     message: str
 '''
-    config = ResultConfig(
-        typed_dict_names=("OperationResult",),
-    )
+    config = ResultConfig(typed_dict_names=("OperationResult",))
     assert _codes(source=source, result_config=config) == ["YNG601"]
 
 
@@ -319,9 +317,7 @@ class OperationResult(TypedDict):
 def execute() -> OperationResult:
     return { "message": "ok", "data": None }
 '''
-    config = ResultConfig(
-        typed_dict_names=("OperationResult",),
-    )
+    config = ResultConfig(typed_dict_names=("OperationResult",))
     assert _codes(source=source, result_config=config) == ["YNG601"]
 
 
@@ -329,11 +325,7 @@ def test_supports_custom_result_fields() -> None:
     source = '''def execute() -> dict[str, object]:
     return { "ok": True, "value": None }
 '''
-    config = ResultConfig(
-        required_fields=("ok", "value"),
-        marker_fields=("ok",),
-        aliases=(),
-    )
+    config = ResultConfig(required_fields=("ok", "value"), marker_fields=("ok",), aliases=())
     assert _codes(source=source, result_config=config) == []
 
 

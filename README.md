@@ -7,7 +7,7 @@
 - Python style guide: `docs/python-style-guide.ko.md`
 - formatter/linter 구현: `src/yngfmt/`
 
-현재 패키지 버전은 `0.12.2`이며 style guide v6 (260905)를 기준으로 합니다.
+현재 패키지 버전은 `0.13.0`이며 style guide v6 (260905)를 기준으로 합니다.
 
 외부 Python tooling/industry convention의 참고 출처는 `docs/formatter-reference-sources.md`에서 한 번만 관리합니다. 세부 외부 규칙을 각 style 문서에 복제하지 않습니다.
 
@@ -22,7 +22,7 @@ python -m pip install -e ".[dev]"
 릴리스 tag 기준으로 직접 설치할 수도 있습니다.
 
 ```bash
-python -m pip install "git+https://github.com/yng-min/yngfmt.git@v0.12.2"
+python -m pip install "git+https://github.com/yng-min/yngfmt.git@v0.13.0"
 ```
 
 GitHub Release에는 wheel과 sdist를 첨부하도록 구성합니다.
@@ -69,8 +69,11 @@ aliases = ["success", "msg", "payload"]
 - `--line-length` 옵션을 제공하지 않습니다.
 - function call, function definition, dictionary, list/tuple/set은 같은 layout policy와 threshold를 사용합니다.
 - formatter와 linter는 같은 layout metadata와 판정 함수를 사용하므로 canonical shape이 어긋나지 않습니다.
-- nested structure/unpacking, named-item density, item/value density 순서로 multi-line 필요 여부를 판정합니다.
-- named item 5개, 이름 24자, named item 64자, 복수의 32자 item 또는 36자 value를 deterministic threshold로 사용합니다.
+- nested child의 canonical layout/unpacking, named-item density, item/value density 순서로 multi-line 필요 여부를 판정합니다.
+- named item 5개, 3개 이상 named item에서 긴 이름/항목의 과반수, 복수의 32자 item 또는 36자 value를 deterministic threshold로 사용합니다.
+- 긴 name/item/value 하나만으로는 multi-line으로 전환하지 않습니다.
+- nested call/collection은 자신의 공통 policy가 실제로 expanded일 때만 parent를 expanded로 전파합니다.
+- 동일 callee의 연속 call block은 필요한 경우 compact call을 expanded로만 승격해 local cohort consistency를 유지합니다.
 - 인자가 여러 개여도 짧은 positional argument 또는 sequence item은 개수만으로 펼치지 않습니다.
 - flat arithmetic/comparison/boolean expression은 내부에 nested call, collection, conditional 등 별도 구조가 없으면 simple expression으로 취급합니다.
 - compact 결과가 200자를 넘으면 제한적 soft ceiling으로 multi-line을 선택합니다. 이는 일반 line-length 정책이 아닙니다.
